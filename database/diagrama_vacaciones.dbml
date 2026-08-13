@@ -1,0 +1,583 @@
+Project sistema_vacaciones_icsi {
+  database_type: 'PostgreSQL'
+  Note: '''
+    Sistema administrativo de vacaciones de ICSI.
+    Esquema PostgreSQL: vacaciones.
+
+    Objetos derivados definidos en el SQL y no representados como tablas:
+    - v_dias_solicitud_calendario
+    - v_resumen_diario_calendario
+    - v_saldo_vacaciones_empleado
+    - obtener_resumen_diario_calendario(...)
+    - cambiar_estado_solicitud(...)
+    - eliminar_registro(...) / restaurar_registro(...)
+
+    Todas las tablas de vacaciones usan borrado logico con eliminado_en,
+    eliminado_por y motivo_eliminacion. DELETE se intercepta mediante trigger.
+  '''
+}
+
+Enum estado_empleado {
+  activo
+  inactivo
+}
+
+Enum origen_empleado {
+  manual
+  csv
+  formulario
+  integracion
+}
+
+Enum metodo_conteo_ausencia {
+  dias_naturales
+  dias_laborales
+}
+
+Enum estado_importacion {
+  pendiente
+  procesando
+  completado
+  completado_con_errores
+  fallido
+}
+
+Enum gravedad_incidencia {
+  advertencia
+  error
+}
+
+Enum estado_solicitud {
+  planeada
+  pendiente
+  aprobada
+  rechazada
+  cancelada
+}
+
+Enum origen_solicitud {
+  administrador
+  csv
+  formulario
+  empleado
+  integracion
+}
+
+Enum rol_usuario {
+  administrador
+  empleado
+}
+
+Table auth.users {
+  id uuid [pk]
+  email varchar
+  created_at timestamptz
+
+  Note: 'Tabla administrada por Supabase Auth. Se muestra solo para visualizar la relacion.'
+}
+
+Table vacaciones.organizaciones {
+  id uuid [pk, default: `gen_random_uuid()`]
+  codigo text [not null]
+  nombre text [not null]
+  zona_horaria text [not null, default: 'America/Mexico_City']
+  inicio_semana smallint [not null, default: 1, note: '0=domingo, 1=lunes, ..., 6=sabado']
+  activo boolean [not null, default: true]
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    codigo [unique, note: 'Solo registros con eliminado_en nulo']
+  }
+
+  Note: 'Organizacion propietaria de los empleados, catalogos y solicitudes.'
+}
+
+Table vacaciones.sedes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  organizacion_id uuid [not null]
+  codigo text [not null]
+  nombre text [not null]
+  zona_horaria text
+  activo boolean [not null, default: true]
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (organizacion_id, codigo) [unique, note: 'Solo registros con eliminado_en nulo']
+  }
+
+  Note: 'Ubicaciones fisicas o centros de trabajo utilizados para filtrar empleados.'
+}
+
+Table vacaciones.proyectos {
+  id uuid [pk, default: `gen_random_uuid()`]
+  organizacion_id uuid [not null]
+  codigo text [not null]
+  nombre text [not null]
+  descripcion text
+  fecha_inicio date
+  fecha_fin date
+  activo boolean [not null, default: true]
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (organizacion_id, codigo) [unique, note: 'Solo registros con eliminado_en nulo']
+  }
+
+  Note: 'Proyectos a los que se asigna actualmente el personal.'
+}
+
+Table vacaciones.categorias_empleado {
+  id uuid [pk, default: `gen_random_uuid()`]
+  organizacion_id uuid [not null]
+  codigo text [not null]
+  nombre text [not null]
+  color text [note: 'Color hexadecimal usado en el panel']
+  activo boolean [not null, default: true]
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (organizacion_id, codigo) [unique, note: 'Solo registros con eliminado_en nulo']
+  }
+
+  Note: 'Categorias iniciales: Administrativo, Dual y Operativo.'
+}
+
+Table vacaciones.horarios_laborales {
+  id uuid [pk, default: `gen_random_uuid()`]
+  organizacion_id uuid [not null]
+  codigo text [not null]
+  nombre text [not null]
+  predeterminado boolean [not null, default: false]
+  activo boolean [not null, default: true]
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (organizacion_id, codigo) [unique, note: 'Solo registros con eliminado_en nulo']
+  }
+
+  Note: 'Plantilla semanal para calcular dias o fracciones laborales.'
+}
+
+Table vacaciones.dias_horario_laboral {
+  id uuid [pk, default: `gen_random_uuid()`]
+  horario_laboral_id uuid [not null]
+  dia_semana smallint [not null, note: '0=domingo, 1=lunes, ..., 6=sabado']
+  fraccion_laboral numeric(4,2) [not null, default: 0, note: 'Entre 0 y 1; por ejemplo 0.5 para medio dia']
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (horario_laboral_id, dia_semana) [unique, note: 'Solo registros con eliminado_en nulo']
+  }
+
+  Note: 'Configuracion de cada dia de una plantilla de horario.'
+}
+
+Table vacaciones.empleados {
+  id uuid [pk, default: `gen_random_uuid()`]
+  organizacion_id uuid [not null]
+  numero_empleado text [not null]
+  nombre_completo text [not null]
+  correo_electronico text
+  curp varchar(18) [note: 'CURP en mayusculas; dato personal restringido']
+  nss varchar(11) [note: 'Numero de Seguridad Social de 11 digitos; dato personal restringido']
+  color_calendario varchar(7) [not null, default: '#2563EB', note: 'Color estable del empleado en el calendario']
+  sede_id uuid
+  proyecto_id uuid
+  categoria_id uuid
+  horario_laboral_id uuid
+  fecha_ingreso date
+  fecha_baja date
+  estado estado_empleado [not null, default: 'activo']
+  origen origen_empleado [not null, default: 'manual']
+  clave_empleado_origen text
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (organizacion_id, numero_empleado) [unique, note: 'Solo registros con eliminado_en nulo']
+    (organizacion_id, curp) [unique, note: 'Solo CURP no nula y registros activos']
+    (organizacion_id, nss) [unique, note: 'Solo NSS no nulo y registros activos']
+    (organizacion_id, estado, sede_id, proyecto_id, categoria_id)
+    (organizacion_id, nombre_completo)
+  }
+
+  Note: 'Persona administrada por el sistema. Su acceso opcional se vincula mediante perfiles_usuario.'
+}
+
+Table vacaciones.perfiles_usuario {
+  usuario_id uuid [pk]
+  empleado_id uuid
+  nombre_visible text [not null]
+  rol rol_usuario [not null, default: 'empleado']
+  activo boolean [not null, default: true]
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    empleado_id [unique, note: 'Solo empleado no nulo y registros con eliminado_en nulo']
+  }
+
+  Note: 'Relaciona Supabase Auth con un administrador o con el futuro portal de un empleado.'
+}
+
+Table vacaciones.tipos_ausencia {
+  id uuid [pk, default: `gen_random_uuid()`]
+  organizacion_id uuid [not null]
+  codigo text [not null]
+  nombre text [not null]
+  color text [not null, default: '#F4B740']
+  descuenta_saldo boolean [not null, default: true]
+  requiere_aprobacion boolean [not null, default: true]
+  metodo_conteo metodo_conteo_ausencia [not null, default: 'dias_naturales']
+  excluir_dias_festivos boolean [not null, default: false]
+  activo boolean [not null, default: true]
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (organizacion_id, codigo) [unique, note: 'Solo registros con eliminado_en nulo']
+  }
+
+  Note: 'Vacaciones, incapacidades, permisos y otras ausencias configurables.'
+}
+
+Table vacaciones.lotes_importacion {
+  id uuid [pk, default: `gen_random_uuid()`]
+  organizacion_id uuid [not null]
+  nombre_archivo text [not null]
+  hash_sha256 text
+  estado estado_importacion [not null, default: 'pendiente']
+  total_filas integer [not null, default: 0]
+  filas_importadas integer [not null, default: 0]
+  filas_rechazadas integer [not null, default: 0]
+  importado_en timestamptz
+  notas text
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (organizacion_id, hash_sha256)
+  }
+
+  Note: 'Auditoria de cada CSV u otra fuente importada.'
+}
+
+Table vacaciones.incidencias_importacion {
+  id bigint [pk, increment]
+  lote_importacion_id uuid [not null]
+  numero_fila integer
+  gravedad gravedad_incidencia [not null, default: 'error']
+  codigo_incidencia text [not null]
+  mensaje text [not null]
+  datos_originales jsonb
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (lote_importacion_id, numero_fila)
+  }
+
+  Note: 'Errores o advertencias detectados durante una importacion.'
+}
+
+Table vacaciones.asignaciones_ausencia {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empleado_id uuid [not null]
+  tipo_ausencia_id uuid [not null]
+  anio_asignacion integer [not null]
+  dias_por_derecho numeric(8,2) [not null, default: 0]
+  dias_acumulados_a_fecha numeric(8,2) [not null, default: 0]
+  dias_disponibles numeric(8,2) [not null, default: 0]
+  fecha_corte_saldo date [not null, default: `current_date`]
+  dias_transferidos numeric(8,2) [not null, default: 0]
+  ajuste_dias numeric(8,2) [not null, default: 0]
+  dias_utilizados_antes_sistema numeric(8,2) [not null, default: 0]
+  fecha_vencimiento date
+  notas text
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (empleado_id, tipo_ausencia_id, anio_asignacion) [unique, note: 'Se conserva global para compatibilidad con UPSERT']
+    (empleado_id, anio_asignacion, tipo_ausencia_id)
+  }
+
+  Note: 'Derecho anual del empleado. El saldo restante se calcula a partir de esta tabla y las solicitudes.'
+}
+
+Table vacaciones.instantaneas_saldo_ausencia {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empleado_id uuid [not null]
+  tipo_ausencia_id uuid [not null]
+  anio_saldo integer [not null]
+  fecha_captura date [not null]
+  dias_disponibles_declarados numeric(8,2) [not null]
+  dias_planeados_declarados numeric(8,2)
+  lote_importacion_id uuid
+  numero_fila_origen integer
+  datos_originales jsonb
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (empleado_id, tipo_ausencia_id, anio_saldo, fecha_captura, lote_importacion_id) [unique, note: 'Solo registros con eliminado_en nulo; NULLS NOT DISTINCT']
+  }
+
+  Note: 'Valor declarado en el CSV. Sirve como evidencia y no como saldo oficial calculado.'
+}
+
+Table vacaciones.dias_festivos {
+  id uuid [pk, default: `gen_random_uuid()`]
+  organizacion_id uuid [not null]
+  sede_id uuid
+  fecha date [not null]
+  nombre text [not null]
+  fraccion_dia numeric(4,2) [not null, default: 1]
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (organizacion_id, sede_id, fecha)
+  }
+
+  Note: 'Si sede_id es nulo, el festivo aplica a toda la organizacion.'
+}
+
+Table vacaciones.solicitudes_ausencia {
+  id uuid [pk, default: `gen_random_uuid()`]
+  organizacion_id uuid [not null]
+  empleado_id uuid [not null]
+  tipo_ausencia_id uuid [not null]
+  estado estado_solicitud [not null, default: 'planeada']
+  fecha_inicio date [not null]
+  fecha_fin date [not null]
+  fecha_reintegro date
+  fraccion_primer_dia numeric(4,2) [not null, default: 1]
+  fraccion_ultimo_dia numeric(4,2) [not null, default: 1]
+  comentarios text
+  solicitado_en timestamptz
+  resuelto_en timestamptz
+  resuelto_por text
+  origen origen_solicitud [not null, default: 'administrador']
+  lote_importacion_id uuid
+  numero_fila_origen integer
+  clave_registro_origen text
+  datos_originales jsonb
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  indexes {
+    (empleado_id, estado, fecha_inicio, fecha_fin)
+    (organizacion_id, fecha_inicio, fecha_fin)
+    (organizacion_id, clave_registro_origen) [unique, note: 'Se conserva global para idempotencia del importador']
+  }
+
+  Note: 'Rango principal que se expande por dia para dibujar el calendario.'
+}
+
+Table vacaciones.historial_estados_solicitud {
+  id bigint [pk, increment]
+  solicitud_ausencia_id uuid [not null]
+  estado_anterior estado_solicitud
+  estado_nuevo estado_solicitud [not null]
+  cambiado_en timestamptz [not null, default: `now()`]
+  cambiado_por text
+  comentarios text
+  actualizado_en timestamptz [not null, default: `now()`]
+  eliminado_en timestamptz
+  eliminado_por uuid
+  motivo_eliminacion text
+
+  Note: 'Auditoria de todos los cambios de estado de una solicitud.'
+}
+
+TableGroup "Configuracion y catalogos" {
+  vacaciones.organizaciones
+  vacaciones.sedes
+  vacaciones.proyectos
+  vacaciones.categorias_empleado
+  vacaciones.horarios_laborales
+  vacaciones.dias_horario_laboral
+  vacaciones.tipos_ausencia
+  vacaciones.dias_festivos
+}
+
+TableGroup "Personal y saldos" {
+  vacaciones.empleados
+  vacaciones.asignaciones_ausencia
+  vacaciones.instantaneas_saldo_ausencia
+}
+
+TableGroup "Acceso" {
+  auth.users
+  vacaciones.perfiles_usuario
+}
+
+TableGroup "Solicitudes de ausencia" {
+  vacaciones.solicitudes_ausencia
+  vacaciones.historial_estados_solicitud
+}
+
+TableGroup "Control de importaciones" {
+  vacaciones.lotes_importacion
+  vacaciones.incidencias_importacion
+}
+
+Ref organizacion_sedes {
+  vacaciones.sedes.organizacion_id > vacaciones.organizaciones.id [delete: cascade]
+}
+
+Ref organizacion_proyectos {
+  vacaciones.proyectos.organizacion_id > vacaciones.organizaciones.id [delete: cascade]
+}
+
+Ref organizacion_categorias {
+  vacaciones.categorias_empleado.organizacion_id > vacaciones.organizaciones.id [delete: cascade]
+}
+
+Ref organizacion_horarios {
+  vacaciones.horarios_laborales.organizacion_id > vacaciones.organizaciones.id [delete: cascade]
+}
+
+Ref horario_dias {
+  vacaciones.dias_horario_laboral.horario_laboral_id > vacaciones.horarios_laborales.id [delete: cascade]
+}
+
+Ref organizacion_empleados {
+  vacaciones.empleados.organizacion_id > vacaciones.organizaciones.id [delete: cascade]
+}
+
+Ref usuario_perfil {
+  vacaciones.perfiles_usuario.usuario_id > auth.users.id [delete: cascade]
+}
+
+Ref empleado_perfil {
+  vacaciones.perfiles_usuario.empleado_id > vacaciones.empleados.id [delete: set null]
+}
+
+Ref empleado_sede {
+  vacaciones.empleados.sede_id > vacaciones.sedes.id [delete: set null]
+}
+
+Ref empleado_proyecto {
+  vacaciones.empleados.proyecto_id > vacaciones.proyectos.id [delete: set null]
+}
+
+Ref empleado_categoria {
+  vacaciones.empleados.categoria_id > vacaciones.categorias_empleado.id [delete: set null]
+}
+
+Ref empleado_horario {
+  vacaciones.empleados.horario_laboral_id > vacaciones.horarios_laborales.id [delete: set null]
+}
+
+Ref organizacion_tipos_ausencia {
+  vacaciones.tipos_ausencia.organizacion_id > vacaciones.organizaciones.id [delete: cascade]
+}
+
+Ref organizacion_lotes {
+  vacaciones.lotes_importacion.organizacion_id > vacaciones.organizaciones.id [delete: cascade]
+}
+
+Ref lote_incidencias {
+  vacaciones.incidencias_importacion.lote_importacion_id > vacaciones.lotes_importacion.id [delete: cascade]
+}
+
+Ref empleado_asignaciones {
+  vacaciones.asignaciones_ausencia.empleado_id > vacaciones.empleados.id [delete: cascade]
+}
+
+Ref tipo_ausencia_asignaciones {
+  vacaciones.asignaciones_ausencia.tipo_ausencia_id > vacaciones.tipos_ausencia.id [delete: cascade]
+}
+
+Ref empleado_instantaneas {
+  vacaciones.instantaneas_saldo_ausencia.empleado_id > vacaciones.empleados.id [delete: cascade]
+}
+
+Ref tipo_ausencia_instantaneas {
+  vacaciones.instantaneas_saldo_ausencia.tipo_ausencia_id > vacaciones.tipos_ausencia.id [delete: cascade]
+}
+
+Ref lote_instantaneas {
+  vacaciones.instantaneas_saldo_ausencia.lote_importacion_id > vacaciones.lotes_importacion.id [delete: set null]
+}
+
+Ref organizacion_festivos {
+  vacaciones.dias_festivos.organizacion_id > vacaciones.organizaciones.id [delete: cascade]
+}
+
+Ref sede_festivos {
+  vacaciones.dias_festivos.sede_id > vacaciones.sedes.id [delete: cascade]
+}
+
+Ref organizacion_solicitudes {
+  vacaciones.solicitudes_ausencia.organizacion_id > vacaciones.organizaciones.id [delete: cascade]
+}
+
+Ref empleado_solicitudes {
+  vacaciones.solicitudes_ausencia.empleado_id > vacaciones.empleados.id [delete: cascade]
+}
+
+Ref tipo_ausencia_solicitudes {
+  vacaciones.solicitudes_ausencia.tipo_ausencia_id > vacaciones.tipos_ausencia.id [delete: restrict]
+}
+
+Ref lote_solicitudes {
+  vacaciones.solicitudes_ausencia.lote_importacion_id > vacaciones.lotes_importacion.id [delete: set null]
+}
+
+Ref solicitud_historial {
+  vacaciones.historial_estados_solicitud.solicitud_ausencia_id > vacaciones.solicitudes_ausencia.id [delete: cascade]
+}

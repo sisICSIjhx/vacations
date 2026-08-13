@@ -1,0 +1,58 @@
+self.__BUILD_MANIFEST = {
+  "/": [
+    "static/chunks/264e010d658818db.js"
+  ],
+  "/_error": [
+    "static/chunks/167ff766d6bfba56.js"
+  ],
+  "/announcements": [
+    "static/chunks/f2de3da51c666592.js"
+  ],
+  "/announcements/[announcementSlug]": [
+    "static/chunks/a122607a8166322d.js"
+  ],
+  "/announcements/idea/[ideaSlug]": [
+    "static/chunks/84354d14b166ebfc.js"
+  ],
+  "/create-idea": [
+    "static/chunks/a1b8c98bbd8a6f0a.js"
+  ],
+  "/create-idea/[ideaSlug]": [
+    "static/chunks/36e85cf31dd2ebaf.js"
+  ],
+  "/ideas": [
+    "static/chunks/13b1975e8632b85b.js"
+  ],
+  "/ideas/[ideaSlug]": [
+    "static/chunks/b2869e968347c46f.js"
+  ],
+  "/ideas/idea/new": [
+    "static/chunks/e4eff93ca2765556.js"
+  ],
+  "/roadmap": [
+    "static/chunks/bdd734c69af01124.js"
+  ],
+  "/roadmap/[ideaSlug]": [
+    "static/chunks/5691661369790da3.js"
+  ],
+  "__rewrites": {
+    "afterFiles": [],
+    "beforeFiles": [],
+    "fallback": []
+  },
+  "sortedPages": [
+    "/",
+    "/_app",
+    "/_error",
+    "/announcements",
+    "/announcements/idea/[ideaSlug]",
+    "/announcements/[announcementSlug]",
+    "/create-idea",
+    "/create-idea/[ideaSlug]",
+    "/ideas",
+    "/ideas/idea/new",
+    "/ideas/[ideaSlug]",
+    "/roadmap",
+    "/roadmap/[ideaSlug]"
+  ]
+};self.__BUILD_MANIFEST_CB && self.__BUILD_MANIFEST_CB()

@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<!-- saved from url=(0030)http://localhost:5173/#resumen -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script type="module">import { injectIntoGlobalHook } from "/@react-refresh";
+injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;</script>
+
+    <script type="module" src="./calendario-vacaciones_files/client"></script>
+
+    
+    <link rel="icon" type="image/svg+xml" href="http://localhost:5173/favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>calendario-vacaciones</title>
+  <style type="text/css" data-vite-dev-id="C:/calendario-vacaciones/src/index.css">:root {
+  color-scheme: light;
+  --bg-page: #f3f4f8;
+  --surface-0: #ffffff;
+  --surface-1: #f7f7fb;
+  --line: #d9dbe7;
+  --ink: #1c2241;
+  --text: #2f365d;
+  --muted: #69719c;
+  --shadow-soft: 0 1px 2px rgba(20, 26, 56, 0.06);
+  --sans: 'Segoe UI', 'Trebuchet MS', Tahoma, sans-serif;
+  --heading: 'Segoe UI Semibold', 'Bahnschrift', 'Trebuchet MS', sans-serif;
+
+  font-family: var(--sans);
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--text);
+  background: var(--bg-page);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+strong {
+  color: var(--ink);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--heading);
+  letter-spacing: -0.015em;
+}
+
+button,
+select,
+input {
+  font: inherit;
+}
+
+p {
+  margin: 0;
+}
+</style><style type="text/css" data-vite-dev-id="C:/calendario-vacaciones/src/App.css">.app-frame {
+  min-height: 100vh;
+  padding: 0.25rem 0.45rem;
+}
+
+.topbar {
+  height: 5rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem 1rem 0 0;
+  background: var(--surface-0);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 1.2rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--ink);
+}
+
+.brand strong {
+  font-size: 1.95rem;
+  letter-spacing: -0.03em;
+}
+
+.brand-dot {
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 0.3rem;
+  background: linear-gradient(135deg, #c5d8ff, #b9b9e8);
+  border: 1px solid #a5afd8;
+}
+
+.main-nav {
+  display: flex;
+  gap: 0.55rem;
+}
+
+.main-nav a {
+  color: #222846;
+  text-decoration: none;
+  padding: 0.7rem 1rem;
+  border-radius: 0.65rem;
+  font-weight: 500;
+}
+
+.main-nav a.active {
+  background: #e7e5f9;
+  color: #383f88;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.top-actions button {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: #2e355a;
+}
+
+.top-actions svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: currentColor;
+}
+
+.avatar {
+  width: 2.55rem;
+  height: 2.55rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #4a519f;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.calendar-shell {
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 0 1rem 1rem;
+  background: var(--surface-1);
+  padding: 1rem;
+}
+
+.calendar-shell > h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(1.6rem, 2vw, 2.2rem);
+  color: #171d35;
+}
+
+.year-toolbar {
+  border-radius: 0.95rem;
+  background: #e7e6f7;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.year-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.year-nav button {
+  width: 2.8rem;
+  height: 2.8rem;
+  border: none;
+  border-radius: 0.55rem;
+  background: #f7f8fd;
+  color: #373f72;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.year-nav svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: currentColor;
+}
+
+.year-nav svg.flip {
+  transform: scaleX(-1);
+}
+
+.year-nav span {
+  color: #39407e;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.year-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.import-btn,
+.request-btn {
+  border: none;
+  border-radius: 0.55rem;
+  min-height: 2.8rem;
+  padding: 0 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.import-btn {
+  background: #f4f5ff;
+  color: #3d4389;
+  border: 1px solid #d8dbf2;
+}
+
+.import-btn input {
+  display: none;
+}
+
+.request-btn {
+  background: #4a519f;
+  color: #ffffff;
+}
+
+.request-btn svg,
+.import-btn svg {
+  width: 1rem;
+  height: 1rem;
+  fill: currentColor;
+}
+
+.calendar-layout {
+  display: grid;
+  grid-template-columns: 16.4rem minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.side-column {
+  display: grid;
+  gap: 0.85rem;
+  align-content: start;
+}
+
+.side-card {
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--surface-0);
+  overflow: hidden;
+}
+
+.side-card h2 {
+  margin: 0;
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid var(--line);
+  color: #161d39;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.select-field {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.75rem 1rem 0;
+}
+
+.select-field span {
+  color: #5a638f;
+  font-size: 0.78rem;
+}
+
+.select-field select {
+  height: 2.3rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d6d9eb;
+  background: #ffffff;
+  color: #1f2548;
+  padding: 0 0.6rem;
+}
+
+.stats-list {
+  margin: 0;
+  padding: 0.85rem 1rem 0.9rem;
+  display: grid;
+  gap: 0.38rem;
+}
+
+.stats-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.stats-list dt {
+  color: #272f56;
+}
+
+.stats-list dd {
+  margin: 0;
+  font-weight: 600;
+  color: #1f2749;
+}
+
+.stats-list .highlight dt::before {
+  content: ' ';
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #f4c34f;
+  margin-right: 0.4rem;
+}
+
+.remaining {
+  border-top: 1px solid var(--line);
+  padding: 0.85rem 1rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.remaining span {
+  color: #20284d;
+  font-weight: 500;
+}
+
+.remaining strong {
+  color: #151d39;
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.side-card.compact .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+}
+
+.side-card.compact .row + .row {
+  border-top: 1px solid var(--line);
+}
+
+.side-card.compact .row span {
+  color: #293155;
+}
+
+.side-card.compact .row strong {
+  color: #1c2443;
+}
+
+.side-card.compact .row.soft strong {
+  font-size: 0.77rem;
+  max-width: 8.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.months-scroll {
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--surface-0);
+  max-height: 67vh;
+  overflow: auto;
+  padding: 0.95rem;
+  scrollbar-color: #4e55a3 #e9eaf9;
+  scrollbar-width: thin;
+}
+
+.months-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.month-card {
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: #ffffff;
+  padding: 0.72rem;
+}
+
+.month-card h3 {
+  margin: 0;
+  text-align: center;
+  color: #1d2545;
+  font-size: 1.02rem;
+  font-weight: 500;
+  text-transform: lowercase;
+}
+
+.weekday-row,
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.weekday-row {
+  margin-top: 0.55rem;
+  margin-bottom: 0.35rem;
+}
+
+.weekday-row span {
+  text-align: center;
+  color: #5e6797;
+  font-size: 0.78rem;
+}
+
+.days-grid {
+  gap: 0.18rem;
+}
+
+.day-cell {
+  min-height: 2.95rem;
+  border-radius: 0.52rem;
+  padding: 0.14rem;
+  display: grid;
+  align-content: space-between;
+  background: transparent;
+}
+
+.day-cell.weekend {
+  background: #f1f2f7;
+}
+
+.day-cell.muted {
+  opacity: 0.35;
+}
+
+.day-number {
+  text-align: center;
+  color: #1f2547;
+  font-size: 0.86rem;
+}
+
+.day-events {
+  min-height: 1.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.12rem;
+}
+
+.leave-pill {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.4rem;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.leave-pill svg {
+  width: 0.78rem;
+  height: 0.78rem;
+  fill: currentColor;
+}
+
+.leave-more {
+  color: #4b529e;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.issues-box {
+  margin-top: 0.9rem;
+  border: 1px solid #d7daf0;
+  background: #f7f8fe;
+  border-radius: 0.72rem;
+  padding: 0.7rem 0.85rem;
+}
+
+.issues-box h2 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  color: #252d55;
+}
+
+.issues-box p {
+  margin: 0;
+  color: #5f6796;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 1280px) {
+  .months-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1040px) {
+  .main-nav {
+    display: none;
+  }
+
+  .calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .months-scroll {
+    max-height: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    padding: 0 0.85rem;
+  }
+
+  .brand strong {
+    font-size: 1.55rem;
+  }
+
+  .year-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .year-actions {
+    justify-content: space-between;
+  }
+
+  .months-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style></head>
+  <body>
+    <div id="root"><div class="app-frame"><header class="topbar"><div class="brand"><span class="brand-dot"></span><strong>ICSI OIL &amp; GAS</strong></div><nav class="main-nav"><a href="http://localhost:5173/#resumen">Resumen</a><a class="active" href="http://localhost:5173/#calendario">Mi calendario</a><a href="http://localhost:5173/#ajustes">Ajustes</a><a href="http://localhost:5173/#analisis">Analisis</a></nav><div class="top-actions"><button aria-label="notificaciones" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 4a5 5 0 0 0-5 5v2.5c0 .8-.3 1.6-.9 2.2L5 15h14l-1.1-1.3c-.6-.6-.9-1.4-.9-2.2V9a5 5 0 0 0-5-5Zm0 17a2.5 2.5 0 0 0 2.3-1.5h-4.6A2.5 2.5 0 0 0 12 21Z"></path></svg></button><button aria-label="avisos" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 11.5v1a2.5 2.5 0 0 0 2.5 2.5H7l1.2 4.3a1 1 0 0 0 1 .7h1.6a1 1 0 0 0 1-.7L13 15h.5c1.5 0 2.9-.4 4.2-1.1l2.8-1.6V10l-2.8-1.6A8.5 8.5 0 0 0 13.5 7H5.5A2.5 2.5 0 0 0 3 9.5v2Z"></path></svg></button><span class="avatar">CI</span></div></header><main class="calendar-shell" id="calendario"><section class="year-toolbar"><div class="year-nav"><button aria-label="anio anterior" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" class=""><path d="M14.8 5.3a1 1 0 0 1 0 1.4L9.5 12l5.3 5.3a1 1 0 0 1-1.4 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.4 0Z"></path></svg></button><span>enero a diciembre 2026</span><button aria-label="anio siguiente" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" class="flip"><path d="M14.8 5.3a1 1 0 0 1 0 1.4L9.5 12l5.3 5.3a1 1 0 0 1-1.4 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.4 0Z"></path></svg></button></div><div class="year-actions"><label class="import-btn"><input accept=".csv,text/csv" type="file"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 .7.3l4 4a1 1 0 0 1-1.4 1.4L13 6.4V14a1 1 0 1 1-2 0V6.4L8.7 8.7A1 1 0 1 1 7.3 7.3l4-4A1 1 0 0 1 12 3Zm-7 13a1 1 0 0 1 1 1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1a1 1 0 1 1 2 0v1a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-1a1 1 0 0 1 1-1Z"></path></svg>Importar CSV</label><button class="request-btn" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1.2A2.8 2.8 0 0 1 22 6.8v11.4a2.8 2.8 0 0 1-2.8 2.8H4.8A2.8 2.8 0 0 1 2 18.2V6.8A2.8 2.8 0 0 1 4.8 4H6V3a1 1 0 0 1 1-1Zm13 7H4v9.2c0 .4.4.8.8.8h14.4c.4 0 .8-.4.8-.8V9Zm-8 2a1 1 0 0 1 1 1v1h1a1 1 0 1 1 0 2h-1v1a1 1 0 1 1-2 0v-1h-1a1 1 0 1 1 0-2h1v-1a1 1 0 0 1 1-1Z"></path></svg>Crear solicitud</button></div></section><section class="calendar-layout"><aside class="side-column"><div class="side-card"><h2>Asignacion de Vacaciones</h2><label class="select-field"><span>Persona</span><select><option value="all">Vista global</option><option value="julieth-guadalupe-lara-arguelles-1">julieth guadalupe lara arguelles</option><option value="luis-alberto-santiago-toledo-2">Luis Alberto Santiago Toledo</option><option value="sistemas-de-la-cruz-icsi-3">sistemas De la cruz icsi</option><option value="angel-gabriel-ortiz-alvarado-4">Angel Gabriel Ortiz Alvarado</option><option value="nathanael-vitelio-gutierrez-alvarado-5">Nathanael Vitelio Gutierrez Alvarado</option><option value="juan-pedro-de-la-cruz-salgado-6">Juan Pedro De la cruz Salgado</option><option value="karen-stefany-olmedo-ortiz-7">karen stefany olmedo ortiz</option></select></label><label class="select-field"><span>Anio</span><select><option value="2026">2026</option><option value="2027">2027</option></select></label><dl class="stats-list"><div><dt>Asignacion</dt><dd>85</dd></div><div><dt>Transferidos</dt><dd>0</dd></div><div class="highlight"><dt>Vacaciones</dt><dd>83</dd></div></dl><div class="remaining"><span>Dias restantes</span><strong>2</strong></div></div><div class="side-card compact"><h2>Ausencia no deducible</h2><div class="row"><span>Dias festivos</span><strong>9 dias</strong></div><div class="row soft"><span>CSV actual</span><strong title="demostracion.csv">demostracion.csv</strong></div></div></aside><section class="months-scroll"><div class="months-grid"><article class="month-card"><h3>enero</h3><div class="weekday-row"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div class="days-grid"><div class="day-cell muted"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">31</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">10</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">11</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">12</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">13</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">14</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">15</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">16</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">17</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">18</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">19</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">20</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">21</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">22</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">25</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">31</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">8</span><div class="day-events" title=""></div></div></div></article><article class="month-card"><h3>febrero</h3><div class="weekday-row"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div class="days-grid"><div class="day-cell muted"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">31</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">10</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">11</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">12</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">13</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">14</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">15</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">16</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">17</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">18</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">19</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">20</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">21</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">22</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">25</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">8</span><div class="day-events" title=""></div></div></div></article><article class="month-card"><h3>marzo</h3><div class="weekday-row"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div class="days-grid"><div class="day-cell muted"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">25</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">10</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">11</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">12</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">13</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">14</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">15</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">16</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">17</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">18</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">19</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">20</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">21</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">22</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">25</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">31</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">5</span><div class="day-events" title=""></div></div></div></article><article class="month-card"><h3>abril</h3><div class="weekday-row"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div class="days-grid"><div class="day-cell muted"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">31</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">6</span><div class="day-events" title="karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">7</span><div class="day-events" title="karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">8</span><div class="day-events" title="karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">9</span><div class="day-events" title="sistemas De la cruz icsi, karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 145, 214);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">10</span><div class="day-events" title="sistemas De la cruz icsi, karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 145, 214);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">11</span><div class="day-events" title="sistemas De la cruz icsi, karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 145, 214);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">12</span><div class="day-events" title="karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">13</span><div class="day-events" title="karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">14</span><div class="day-events" title="karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">15</span><div class="day-events" title="karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">16</span><div class="day-events" title="karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">17</span><div class="day-events" title="karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">18</span><div class="day-events" title="karen stefany olmedo ortiz"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">19</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">20</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">21</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">22</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">25</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">10</span><div class="day-events" title=""></div></div></div></article><article class="month-card"><h3>mayo</h3><div class="weekday-row"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div class="days-grid"><div class="day-cell muted"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">10</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">11</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">12</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">13</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">14</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">15</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">16</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">17</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">18</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">19</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">20</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">21</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">22</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">25</span><div class="day-events" title="Luis Alberto Santiago Toledo"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">26</span><div class="day-events" title="Luis Alberto Santiago Toledo"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">27</span><div class="day-events" title="Luis Alberto Santiago Toledo"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">28</span><div class="day-events" title="Luis Alberto Santiago Toledo"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">29</span><div class="day-events" title="Luis Alberto Santiago Toledo"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">31</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">1</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted"><span class="day-number">2</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted"><span class="day-number">3</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted"><span class="day-number">4</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted"><span class="day-number">5</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted weekend"><span class="day-number">6</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted weekend"><span class="day-number">7</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div></div></article><article class="month-card"><h3>junio</h3><div class="weekday-row"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div class="days-grid"><div class="day-cell"><span class="day-number">1</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">2</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">3</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">4</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">5</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">6</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">7</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">8</span><div class="day-events" title="Juan Pedro De la cruz Salgado"><span class="leave-pill" style="background-color: rgb(124, 161, 203);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">10</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">11</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">12</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">13</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">14</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">15</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">16</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">17</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">18</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">19</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">20</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">21</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">22</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">25</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">10</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">11</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">12</span><div class="day-events" title=""></div></div></div></article><article class="month-card"><h3>julio</h3><div class="weekday-row"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div class="days-grid"><div class="day-cell muted"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">10</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">11</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">12</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">13</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">14</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">15</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">16</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">17</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">18</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">19</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">20</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">21</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">22</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">25</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">31</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted weekend"><span class="day-number">1</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted weekend"><span class="day-number">2</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted"><span class="day-number">3</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted"><span class="day-number">4</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted"><span class="day-number">5</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted"><span class="day-number">6</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted"><span class="day-number">7</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted weekend"><span class="day-number">8</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted weekend"><span class="day-number">9</span><div class="day-events" title=""></div></div></div></article><article class="month-card"><h3>agosto</h3><div class="weekday-row"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div class="days-grid"><div class="day-cell muted"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">31</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">1</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">2</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">3</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">4</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">5</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">6</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">7</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">8</span><div class="day-events" title="julieth guadalupe lara arguelles"><span class="leave-pill" style="background-color: rgb(136, 131, 178);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">10</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">11</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">12</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">13</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">14</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">15</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">16</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">17</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">18</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">19</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">20</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">21</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">22</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">25</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">31</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">6</span><div class="day-events" title=""></div></div></div></article><article class="month-card"><h3>septiembre</h3><div class="weekday-row"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div class="days-grid"><div class="day-cell muted"><span class="day-number">31</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">10</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">11</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">12</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">13</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">14</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">15</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">16</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">17</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">18</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">19</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">20</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">21</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">22</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">25</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">10</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">11</span><div class="day-events" title=""></div></div></div></article><article class="month-card"><h3>octubre</h3><div class="weekday-row"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div class="days-grid"><div class="day-cell muted"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">10</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">11</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">12</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">13</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">14</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">15</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">16</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">17</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">18</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">19</span><div class="day-events" title="Angel Gabriel Ortiz Alvarado"><span class="leave-pill" style="background-color: rgb(110, 147, 183);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">20</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">21</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">22</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">25</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">31</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">8</span><div class="day-events" title=""></div></div></div></article><article class="month-card"><h3>noviembre</h3><div class="weekday-row"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div class="days-grid"><div class="day-cell muted"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">31</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">10</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">11</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">12</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">13</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">14</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">15</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">16</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">17</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">18</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">19</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">20</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">21</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">22</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">25</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">26</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">27</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">28</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">29</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">6</span><div class="day-events" title=""></div></div></div></article><article class="month-card"><h3>diciembre</h3><div class="weekday-row"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div class="days-grid"><div class="day-cell muted"><span class="day-number">30</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">10</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">11</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">12</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">13</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">14</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">15</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">16</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">17</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">18</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">19</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">20</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">21</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">22</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">23</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">24</span><div class="day-events" title=""></div></div><div class="day-cell"><span class="day-number">25</span><div class="day-events" title=""></div></div><div class="day-cell weekend"><span class="day-number">26</span><div class="day-events" title="Nathanael Vitelio Gutierrez Alvarado"><span class="leave-pill" style="background-color: rgb(143, 132, 192);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell weekend"><span class="day-number">27</span><div class="day-events" title="Nathanael Vitelio Gutierrez Alvarado"><span class="leave-pill" style="background-color: rgb(143, 132, 192);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">28</span><div class="day-events" title="Nathanael Vitelio Gutierrez Alvarado"><span class="leave-pill" style="background-color: rgb(143, 132, 192);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">29</span><div class="day-events" title="Nathanael Vitelio Gutierrez Alvarado"><span class="leave-pill" style="background-color: rgb(143, 132, 192);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">30</span><div class="day-events" title="Nathanael Vitelio Gutierrez Alvarado"><span class="leave-pill" style="background-color: rgb(143, 132, 192);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell"><span class="day-number">31</span><div class="day-events" title="Nathanael Vitelio Gutierrez Alvarado"><span class="leave-pill" style="background-color: rgb(143, 132, 192);"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V4Zm2 1h2V4h-2v1Zm8 6H5v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5Z"></path></svg></span></div></div><div class="day-cell muted"><span class="day-number">1</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">2</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">3</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">4</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">5</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">6</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">7</span><div class="day-events" title=""></div></div><div class="day-cell muted"><span class="day-number">8</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">9</span><div class="day-events" title=""></div></div><div class="day-cell muted weekend"><span class="day-number">10</span><div class="day-events" title=""></div></div></div></article></div></section></section><section class="issues-box"><h2>Registros por revisar</h2><p>1 periodos tienen rango invalido en el CSV y no se muestran en el calendario.</p></section></main></div></div>
+    <script type="module" src="./calendario-vacaciones_files/main.tsx"></script>
+  
+
+</body></html>
