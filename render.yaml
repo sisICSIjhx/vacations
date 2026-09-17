@@ -2,6 +2,7 @@ services:
   - type: web
     name: icsi-vacaciones-api
     runtime: docker
+    plan: free
     dockerfilePath: ./api/Dockerfile
     dockerContext: ./api
     healthCheckPath: /salud
