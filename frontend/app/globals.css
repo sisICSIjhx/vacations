@@ -672,3 +672,6 @@ p { color: var(--muted); line-height: 1.55; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+.check-row { display: flex; align-items: center; gap: 9px; font-size: 13px; cursor: pointer; }
+.check-row input { width: 16px; height: 16px; accent-color: var(--brand, #2563eb); }

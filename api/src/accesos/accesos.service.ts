@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -45,6 +46,7 @@ export class AccesosService {
     // poder identificar cuentas ya creadas (p. ej. desde el panel de Supabase)
     // y ofrecer vincularlas en vez de invitar un correo duplicado.
     const correoPorUsuario = new Map<string, string>();
+    const puedeCambiar = new Set<string>();
     let pagina = 1;
     for (;;) {
       const { data: listado, error: errorListado } =
@@ -52,6 +54,9 @@ export class AccesosService {
       if (errorListado || !listado) break;
       for (const usuario of listado.users) {
         if (usuario.email) correoPorUsuario.set(usuario.id, usuario.email);
+        if (usuario.app_metadata?.puede_cambiar_contrasena === true) {
+          puedeCambiar.add(usuario.id);
+        }
       }
       if (listado.users.length < 200) break;
       pagina += 1;
@@ -64,6 +69,7 @@ export class AccesosService {
       rol: perfil.rol,
       activo: perfil.activo,
       correo: correoPorUsuario.get(perfil.usuario_id) ?? null,
+      puedeCambiarContrasena: puedeCambiar.has(perfil.usuario_id),
     }));
   }
 
@@ -94,9 +100,8 @@ export class AccesosService {
     }
 
     // No se envía invitación por correo: se crea la cuenta ya confirmada con
-    // una contraseña temporal, y es el administrador quien la comparte con el
-    // empleado por el medio que prefiera (no queda registrada en ningún lado
-    // más que en esta respuesta, que solo se muestra una vez).
+    // una contraseña temporal y es el administrador quien la comparte con el
+    // empleado. Queda guardada cifrada para poder consultarla con MFA.
     const contrasena = this.generarContrasena();
     const { data: creado, error: errorCreado } =
       await admin.auth.admin.createUser({
@@ -129,9 +134,21 @@ export class AccesosService {
       }
       usuarioId = existente.id;
       contrasenaGenerada = null;
+      if (dto.permitirCambioContrasena !== undefined) {
+        await admin.auth.admin.updateUserById(usuarioId, {
+          app_metadata: {
+            puede_cambiar_contrasena: dto.permitirCambioContrasena,
+          },
+        });
+      }
     } else {
       usuarioId = creado.user.id;
-      await this.guardarContrasena(admin, usuarioId, contrasena);
+      await this.guardarContrasena(
+        admin,
+        usuarioId,
+        contrasena,
+        dto.permitirCambioContrasena ?? false,
+      );
     }
 
     // upsert (no insert): si por algún motivo ya existía una fila de perfil
@@ -192,7 +209,20 @@ export class AccesosService {
     if (dto.rol) cambios.rol = dto.rol;
     if (dto.activo !== undefined) cambios.activo = dto.activo;
     if (dto.empleadoId) cambios.empleado_id = dto.empleadoId;
-    if (!Object.keys(cambios).length) return { actualizado: false };
+
+    if (dto.permitirCambioContrasena !== undefined) {
+      const { error: errorMeta } = await this.supabase
+        .administrador()
+        .auth.admin.updateUserById(usuarioId, {
+          app_metadata: {
+            puede_cambiar_contrasena: dto.permitirCambioContrasena,
+          },
+        });
+      if (errorMeta) throw new UnprocessableEntityException(errorMeta.message);
+    }
+    if (!Object.keys(cambios).length) {
+      return { actualizado: dto.permitirCambioContrasena !== undefined };
+    }
 
     const { error } = await db
       .from('perfiles_usuario')
@@ -202,15 +232,49 @@ export class AccesosService {
     return { actualizado: true };
   }
 
-  async restablecerContrasena(usuarioId: string) {
+  async restablecerContrasena(usuarioId: string, permitirCambio?: boolean) {
     const admin = this.supabase.administrador();
     const contrasena = this.generarContrasena();
     const { error } = await admin.auth.admin.updateUserById(usuarioId, {
       password: contrasena,
     });
     if (error) throw new UnprocessableEntityException(error.message);
-    await this.guardarContrasena(admin, usuarioId, contrasena);
+    await this.guardarContrasena(admin, usuarioId, contrasena, permitirCambio);
     return { contrasena };
+  }
+
+  async cambiarContrasenaPropia(
+    usuarioId: string,
+    correo: string | null,
+    contrasenaActual: string,
+    contrasenaNueva: string,
+  ) {
+    const admin = this.supabase.administrador();
+    const { data, error } = await admin.auth.admin.getUserById(usuarioId);
+    if (error || !data.user)
+      throw new NotFoundException('El usuario no existe.');
+    if (data.user.app_metadata?.puede_cambiar_contrasena !== true) {
+      throw new ForbiddenException(
+        'El administrador no habilitó el cambio de contraseña para tu cuenta.',
+      );
+    }
+    if (
+      !correo ||
+      !(await this.supabase.verificarContrasena(correo, contrasenaActual))
+    ) {
+      throw new UnprocessableEntityException(
+        'La contraseña actual no es correcta.',
+      );
+    }
+    const { error: errorCambio } = await admin.auth.admin.updateUserById(
+      usuarioId,
+      { password: contrasenaNueva },
+    );
+    if (errorCambio)
+      throw new UnprocessableEntityException(errorCambio.message);
+    // Se conserva cifrada para que el administrador pueda consultarla con MFA.
+    await this.guardarContrasena(admin, usuarioId, contrasenaNueva);
+    return { actualizado: true };
   }
 
   async verContrasena(usuarioId: string) {
@@ -221,8 +285,7 @@ export class AccesosService {
       throw new NotFoundException('El usuario no existe.');
     }
     const cifrada = data.user.app_metadata?.contrasena_cifrada as
-      | string
-      | undefined;
+      string | undefined;
     if (!cifrada) return { contrasena: null };
     try {
       return { contrasena: this.descifrar(cifrada) };
@@ -239,9 +302,15 @@ export class AccesosService {
     admin: SupabaseClient,
     usuarioId: string,
     contrasena: string,
+    permitirCambio?: boolean,
   ) {
     const { error } = await admin.auth.admin.updateUserById(usuarioId, {
-      app_metadata: { contrasena_cifrada: this.cifrar(contrasena) },
+      app_metadata: {
+        contrasena_cifrada: this.cifrar(contrasena),
+        ...(permitirCambio === undefined
+          ? {}
+          : { puede_cambiar_contrasena: permitirCambio }),
+      },
     });
     if (error) throw new UnprocessableEntityException(error.message);
   }

@@ -1,16 +1,27 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '../common/auth.guard';
+import {
+  AuthGuard,
+  SesionGuard,
+  type SolicitudAutenticada,
+} from '../common/auth.guard';
 import { AccesosService } from './accesos.service';
-import { ActualizarAccesoDto, CrearAccesoDto } from './dto';
+import {
+  ActualizarAccesoDto,
+  CambiarContrasenaDto,
+  CrearAccesoDto,
+  RestablecerContrasenaDto,
+} from './dto';
 
 @ApiTags('accesos')
 @ApiBearerAuth()
@@ -46,9 +57,19 @@ export class AccesosController {
 
   @Get(':usuarioId/contrasena')
   @ApiOperation({
-    summary: 'Consulta la contraseña temporal generada por el sistema',
+    summary:
+      'Consulta la contraseña guardada; exige una sesión verificada con MFA',
   })
-  verContrasena(@Param('usuarioId') usuarioId: string) {
+  verContrasena(
+    @Param('usuarioId') usuarioId: string,
+    @Req() solicitud: SolicitudAutenticada,
+  ) {
+    if (solicitud.sesion?.aal !== 'aal2') {
+      throw new ForbiddenException({
+        message: 'Verifica tu código de autenticación para ver contraseñas.',
+        codigo: 'MFA_REQUERIDO',
+      });
+    }
     return this.accesos.verContrasena(usuarioId);
   }
 
@@ -56,7 +77,36 @@ export class AccesosController {
   @ApiOperation({
     summary: 'Genera una nueva contraseña temporal para un acceso existente',
   })
-  restablecerContrasena(@Param('usuarioId') usuarioId: string) {
-    return this.accesos.restablecerContrasena(usuarioId);
+  restablecerContrasena(
+    @Param('usuarioId') usuarioId: string,
+    @Body() dto: RestablecerContrasenaDto,
+  ) {
+    return this.accesos.restablecerContrasena(usuarioId, dto.permitirCambio);
+  }
+}
+
+@ApiTags('cuenta')
+@ApiBearerAuth()
+@UseGuards(SesionGuard)
+@Controller('cuenta')
+export class CuentaController {
+  constructor(private readonly accesos: AccesosService) {}
+
+  @Post('contrasena')
+  @ApiOperation({
+    summary:
+      'El usuario cambia su propia contraseña (si el administrador lo permitió)',
+  })
+  cambiarContrasena(
+    @Body() dto: CambiarContrasenaDto,
+    @Req() solicitud: SolicitudAutenticada,
+  ) {
+    const sesion = solicitud.sesion!;
+    return this.accesos.cambiarContrasenaPropia(
+      sesion.usuarioId,
+      sesion.correo,
+      dto.contrasenaActual,
+      dto.contrasenaNueva,
+    );
   }
 }

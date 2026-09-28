@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AuthGuard } from '../common/auth.guard';
 import { SupabaseService } from '../common/supabase.service';
-import { AccesosController } from './accesos.controller';
+import { SesionGuard } from '../common/auth.guard';
+import { AccesosController, CuentaController } from './accesos.controller';
 import { AccesosService } from './accesos.service';
 
 @Module({
-  controllers: [AccesosController],
-  providers: [AccesosService, SupabaseService, AuthGuard],
+  controllers: [AccesosController, CuentaController],
+  providers: [AccesosService, SupabaseService, AuthGuard, SesionGuard],
 })
 export class AccesosModule {}

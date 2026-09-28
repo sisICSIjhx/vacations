@@ -5,7 +5,7 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { BadgeCheck, Check, Copy, Eye, KeyRound, Pencil, Plus, Search, ShieldCheck, Trash2, UserCheck, UserX, X } from "lucide-react";
 import { accesosDisponibles, actualizarAcceso, crearAcceso, listarAccesos, restablecerContrasena, verContrasena, type AccesoCreado, type AccesoUsuario } from "../lib/api";
-import { supabaseConfigurado } from "../lib/supabase";
+import { obtenerSupabase, supabaseConfigurado } from "../lib/supabase";
 import { Select } from "./Select";
 import type { DatosVacaciones, Empleado, EmpleadoFormulario, RolUsuario } from "../types";
 
@@ -90,6 +90,9 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
   const [error, setError] = useState<string | null>(null);
   const [resultado, setResultado] = useState<AccesoCreado | null>(null);
   const [copiado, setCopiado] = useState<"correo" | "contrasena" | null>(null);
+  const [permitirCambio, setPermitirCambio] = useState(accesoActual?.puedeCambiarContrasena ?? false);
+  const [mfa, setMfa] = useState<{ factorId: string; qr?: string; secreto?: string } | null>(null);
+  const [codigoMfa, setCodigoMfa] = useState("");
 
   const vincular = async (usuarioId: string) => {
     setGuardando(true);
@@ -110,7 +113,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
     setGuardando(true);
     setError(null);
     try {
-      const creado = await crearAcceso({ empleadoId: empleado.id, correo, rol });
+      const creado = await crearAcceso({ empleadoId: empleado.id, correo, rol, permitirCambioContrasena: permitirCambio });
       setResultado(creado);
       onRefrescar();
     } catch (err) {
@@ -125,7 +128,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
     setGuardando(true);
     setError(null);
     try {
-      await actualizarAcceso(accesoActual.usuarioId, { rol, activo });
+      await actualizarAcceso(accesoActual.usuarioId, { rol, activo, permitirCambioContrasena: permitirCambio });
       onRefrescar();
       onClose();
     } catch (err) {
@@ -141,7 +144,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
     setGuardando(true);
     setError(null);
     try {
-      const { contrasena } = await restablecerContrasena(accesoActual.usuarioId);
+      const { contrasena } = await restablecerContrasena(accesoActual.usuarioId, permitirCambio);
       setResultado({ usuarioId: accesoActual.usuarioId, correo: accesoActual.correo ?? "", contrasena, rol: accesoActual.rol });
     } catch (err) {
       setError(err instanceof Error ? err.message : "No fue posible restablecer la contraseña.");
@@ -150,19 +153,63 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
     }
   };
 
-  const consultar = async () => {
+  const mostrarContrasena = async () => {
     if (!accesoActual) return;
+    const { contrasena } = await verContrasena(accesoActual.usuarioId);
+    if (!contrasena) {
+      setError("No hay una contraseña guardada para este usuario (la cuenta ya existía antes o su contraseña se cambió fuera del sistema). Usa «Restablecer contraseña» para generar una nueva.");
+      return;
+    }
+    setResultado({ usuarioId: accesoActual.usuarioId, correo: accesoActual.correo ?? "", contrasena, rol: accesoActual.rol });
+  };
+
+  // Ver contraseñas exige una sesión verificada con el autenticador (MFA/TOTP):
+  // si el administrador aún no tiene uno, se le pide vincularlo primero.
+  const consultar = async () => {
+    const supabase = obtenerSupabase();
+    if (!accesoActual || !supabase) return;
     setGuardando(true);
     setError(null);
     try {
-      const { contrasena } = await verContrasena(accesoActual.usuarioId);
-      if (!contrasena) {
-        setError("No hay una contraseña guardada para este usuario (la cuenta ya existía antes o la cambió). Usa «Restablecer contraseña» para generar una nueva.");
+      const { data: nivel } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (nivel?.currentLevel === "aal2") {
+        await mostrarContrasena();
         return;
       }
-      setResultado({ usuarioId: accesoActual.usuarioId, correo: accesoActual.correo ?? "", contrasena, rol: accesoActual.rol });
+      const { data: factores, error: errorFactores } = await supabase.auth.mfa.listFactors();
+      if (errorFactores) throw errorFactores;
+      const verificado = factores?.totp[0];
+      if (verificado) {
+        setMfa({ factorId: verificado.id });
+        return;
+      }
+      for (const pendiente of (factores?.all ?? []).filter((factor) => factor.status === "unverified")) {
+        await supabase.auth.mfa.unenroll({ factorId: pendiente.id });
+      }
+      const { data: nuevo, error: errorAlta } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: `ICSI People ${Date.now()}` });
+      if (errorAlta || !nuevo) throw errorAlta ?? new Error("No fue posible iniciar la vinculación.");
+      setMfa({ factorId: nuevo.id, qr: nuevo.totp.qr_code, secreto: nuevo.totp.secret });
     } catch (err) {
       setError(err instanceof Error ? err.message : "No fue posible consultar la contraseña.");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const confirmarMfa = async (evento: React.FormEvent) => {
+    evento.preventDefault();
+    const supabase = obtenerSupabase();
+    if (!mfa || !supabase) return;
+    setGuardando(true);
+    setError(null);
+    try {
+      const { error: errorCodigo } = await supabase.auth.mfa.challengeAndVerify({ factorId: mfa.factorId, code: codigoMfa.trim() });
+      if (errorCodigo) throw new Error("Código incorrecto o vencido. Inténtalo de nuevo.");
+      setMfa(null);
+      setCodigoMfa("");
+      await mostrarContrasena();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No fue posible verificar el código.");
     } finally {
       setGuardando(false);
     }
@@ -207,6 +254,22 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
             )}
             <footer><button className="primary-button" type="button" onClick={onClose} title="Cerrar">Listo</button></footer>
           </>
+        ) : mfa ? (
+          <form onSubmit={confirmarMfa}>
+            {mfa.qr ? (
+              <>
+                <p className="empty-note">Para ver contraseñas necesitas un código de tu app de autenticación. Escanea este QR con Google Authenticator, Microsoft Authenticator, Authy o similar, y escribe el código de 6 dígitos que muestre.</p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={mfa.qr} alt="Código QR para vincular el autenticador" width={180} height={180} style={{ background: "#fff", padding: 8, borderRadius: 8, alignSelf: "center" }} />
+                <div className="invite-link-box"><code>{mfa.secreto}</code></div>
+              </>
+            ) : (
+              <p className="empty-note">Escribe el código de 6 dígitos de tu app de autenticación para ver la contraseña.</p>
+            )}
+            <label><span>Código de verificación</span><input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={codigoMfa} onChange={(e) => setCodigoMfa(e.target.value)} placeholder="123456" /></label>
+            {error && <div className="inline-alert error">{error}</div>}
+            <footer><button className="secondary-button" type="button" onClick={() => { setMfa(null); setCodigoMfa(""); setError(null); }} title="Cancelar">Cancelar</button><button className="primary-button" type="submit" disabled={guardando} title="Verificar">{guardando ? "Verificando…" : "Verificar"}</button></footer>
+          </form>
         ) : accesoActual ? (
           <>
             <div className="form-grid two-columns">
@@ -214,6 +277,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
               <label><span>Estado</span><Select value={activo ? "activo" : "inactivo"} onChange={(valor) => setActivo(valor === "activo")}><option value="activo">Activo</option><option value="inactivo">Inactivo</option></Select></label>
             </div>
             {accesoActual.correo && <p className="empty-note">Correo: {accesoActual.correo}</p>}
+            <label className="check-row"><input type="checkbox" checked={permitirCambio} onChange={(e) => setPermitirCambio(e.target.checked)} /><span>Permitir que el usuario cambie su contraseña</span></label>
             <button type="button" className="secondary-button" disabled={guardando} onClick={consultar} title="Ver contraseña"><Eye size={15} />Ver contraseña</button>
             <button type="button" className="secondary-button" disabled={guardando} onClick={restablecer} title="Restablecer contraseña"><KeyRound size={15} />Restablecer contraseña</button>
             {error && <div className="inline-alert error">{error}</div>}
@@ -231,6 +295,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
               <label className="span-two"><span>Correo electrónico *</span><input required type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} placeholder="empleado@icsi.com" /></label>
               <label className="span-two"><span>Rol</span>{selectorRol(rol, setRol)}</label>
             </div>
+            <label className="check-row"><input type="checkbox" checked={permitirCambio} onChange={(e) => setPermitirCambio(e.target.checked)} /><span>Permitir que el usuario cambie su contraseña</span></label>
             <p className="empty-note">Se creará la cuenta con una contraseña temporal generada automáticamente, que podrás copiar y compartir con {empleado.nombre}. Si este correo ya tenía una cuenta creada (p. ej. desde el panel de Supabase), en vez de fallar se vinculará a este empleado sin tocar su contraseña.</p>
             {error && <div className="inline-alert error">{error}</div>}
             <footer><button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button><button className="primary-button" type="submit" disabled={guardando} title="Crear acceso">{guardando ? "Creando…" : "Crear acceso"}</button></footer>

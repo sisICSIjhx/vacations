@@ -27,6 +27,23 @@ export class SupabaseService {
     return this.clienteAdministrador;
   }
 
+  // Comprueba una contraseña iniciando sesión con un cliente desechable.
+  async verificarContrasena(correo: string, contrasena: string) {
+    if (!this.url || !this.clavePublica) {
+      throw new ServiceUnavailableException(
+        'Faltan SUPABASE_URL o SUPABASE_PUBLISHABLE_KEY en el servidor.',
+      );
+    }
+    const cliente = createClient(this.url, this.clavePublica, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error } = await cliente.auth.signInWithPassword({
+      email: correo,
+      password: contrasena,
+    });
+    return !error;
+  }
+
   async obtenerUsuario(token: string) {
     if (!this.url || !this.clavePublica) {
       throw new ServiceUnavailableException(

@@ -1,4 +1,13 @@
-import { IsBoolean, IsEmail, IsIn, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export const ROLES_VALIDOS = [
   'administrador',
@@ -16,9 +25,17 @@ export class CrearAccesoDto {
 
   @IsIn(ROLES_VALIDOS)
   rol!: (typeof ROLES_VALIDOS)[number];
+
+  @IsOptional()
+  @IsBoolean()
+  permitirCambioContrasena?: boolean;
 }
 
 export class ActualizarAccesoDto {
+  @IsOptional()
+  @IsBoolean()
+  permitirCambioContrasena?: boolean;
+
   @IsOptional()
   @IsIn(ROLES_VALIDOS)
   rol?: (typeof ROLES_VALIDOS)[number];
@@ -30,4 +47,20 @@ export class ActualizarAccesoDto {
   @IsOptional()
   @IsUUID()
   empleadoId?: string;
+}
+
+export class RestablecerContrasenaDto {
+  @IsOptional()
+  @IsBoolean()
+  permitirCambio?: boolean;
+}
+
+export class CambiarContrasenaDto {
+  @IsString()
+  contrasenaActual!: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  contrasenaNueva!: string;
 }

@@ -10,6 +10,7 @@ export interface AccesoUsuario {
   rol: RolUsuario;
   activo: boolean;
   correo: string | null;
+  puedeCambiarContrasena: boolean;
 }
 
 export interface AccesoCreado {
@@ -46,18 +47,22 @@ export function listarAccesos(): Promise<AccesoUsuario[]> {
   return solicitar<AccesoUsuario[]>("/accesos");
 }
 
-export function crearAcceso(datos: { empleadoId: string; correo: string; rol: RolUsuario }): Promise<AccesoCreado> {
+export function crearAcceso(datos: { empleadoId: string; correo: string; rol: RolUsuario; permitirCambioContrasena?: boolean }): Promise<AccesoCreado> {
   return solicitar<AccesoCreado>("/accesos", { method: "POST", body: JSON.stringify(datos) });
 }
 
-export function actualizarAcceso(usuarioId: string, cambios: { rol?: RolUsuario; activo?: boolean; empleadoId?: string }): Promise<{ actualizado: boolean }> {
+export function actualizarAcceso(usuarioId: string, cambios: { rol?: RolUsuario; activo?: boolean; empleadoId?: string; permitirCambioContrasena?: boolean }): Promise<{ actualizado: boolean }> {
   return solicitar<{ actualizado: boolean }>(`/accesos/${usuarioId}`, { method: "PATCH", body: JSON.stringify(cambios) });
 }
 
-export function restablecerContrasena(usuarioId: string): Promise<{ contrasena: string }> {
-  return solicitar<{ contrasena: string }>(`/accesos/${usuarioId}/restablecer-contrasena`, { method: "POST" });
+export function restablecerContrasena(usuarioId: string, permitirCambio?: boolean): Promise<{ contrasena: string }> {
+  return solicitar<{ contrasena: string }>(`/accesos/${usuarioId}/restablecer-contrasena`, { method: "POST", body: JSON.stringify({ permitirCambio }) });
 }
 
 export function verContrasena(usuarioId: string): Promise<{ contrasena: string | null }> {
   return solicitar<{ contrasena: string | null }>(`/accesos/${usuarioId}/contrasena`);
+}
+
+export function cambiarMiContrasena(contrasenaActual: string, contrasenaNueva: string): Promise<{ actualizado: boolean }> {
+  return solicitar<{ actualizado: boolean }>("/cuenta/contrasena", { method: "POST", body: JSON.stringify({ contrasenaActual, contrasenaNueva }) });
 }

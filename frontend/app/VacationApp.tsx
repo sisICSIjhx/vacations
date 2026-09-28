@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Bell, Calendar, ChartPie, ChevronDown, ChevronLeft, ChevronRight,
-  ClipboardList, LogOut, Menu, Moon, Plus, Settings2, ShieldCheck,
+  ClipboardList, KeyRound, LogOut, Menu, Moon, Plus, Settings2, ShieldCheck,
   PanelLeftClose, PanelLeftOpen, Sun, UserCog, UsersRound, X,
 } from "lucide-react";
 import { CatalogsView } from "./components/CatalogsView";
+import { ChangePasswordModal } from "./components/ChangePasswordModal";
 import { DashboardView } from "./components/DashboardView";
 import { EmployeeFocus } from "./components/EmployeeFocus";
 import { EmployeesView } from "./components/EmployeesView";
@@ -220,6 +221,7 @@ function RequestModal({ datos, perfil, actualizando, onClose, onCreate }: { dato
 
 export default function VacationApp() {
   const [sesion, setSesion] = useState<Session | null>(null);
+  const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
   const [perfilSesion, setPerfilSesion] = useState<PerfilUsuario | null>(null);
   const [rolDemo, setRolDemo] = useState<keyof typeof PERFILES_DEMOSTRACION>("administrador");
   const [demoAutorizada, setDemoAutorizada] = useState(false);
@@ -354,9 +356,11 @@ export default function VacationApp() {
             <button className="icon-button notification-button" type="button" aria-label="Notificaciones" title="Notificaciones"><Bell size={18} /><i /></button>
             <span className="topbar-divider" />
             <div className="profile-chip" title={sesion?.user.email ?? perfil?.nombreVisible ?? "Modo demostración"}><span className="avatar small">{(perfil?.nombreVisible ?? "AD").split(" ").slice(0, 2).map((p) => p[0]).join("")}</span><div><strong>{perfil ? nombresDePila(perfil.nombreVisible) : "Administración"}</strong><span>{perfil ? etiquetaPerfil(perfil) : "Administración"}</span></div></div>
+            {sesion?.user.app_metadata?.puede_cambiar_contrasena === true && <button className="icon-button" type="button" onClick={() => setCambiandoContrasena(true)} aria-label="Cambiar contraseña" title="Cambiar contraseña"><KeyRound size={18} /></button>}
             <button className="icon-button" type="button" onClick={cerrarSesion} aria-label="Cerrar sesión" title="Cerrar sesión"><LogOut size={18} /></button>
           </div>
         </header>
+        {cambiandoContrasena && <ChangePasswordModal onClose={() => setCambiandoContrasena(false)} />}
         {sistema.modoDemostracion && <div className="demo-banner"><span><ShieldCheck size={15} /><strong>Demostración</strong> Los cambios son temporales hasta conectar Supabase.</span></div>}
         {sistema.error && <div className="global-error">{sistema.error}</div>}
         <main className="app-main">
