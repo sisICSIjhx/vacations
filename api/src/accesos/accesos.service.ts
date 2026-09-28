@@ -4,7 +4,13 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from 'node:crypto';
+import { ConfigService } from '@nestjs/config';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { SupabaseService } from '../common/supabase.service';
 import { ActualizarAccesoDto, CrearAccesoDto } from './dto';
@@ -19,7 +25,10 @@ interface FilaPerfil {
 
 @Injectable()
 export class AccesosService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly config: ConfigService,
+  ) {}
 
   async listar() {
     const admin = this.supabase.administrador();
@@ -122,6 +131,7 @@ export class AccesosService {
       contrasenaGenerada = null;
     } else {
       usuarioId = creado.user.id;
+      await this.guardarContrasena(admin, usuarioId, contrasena);
     }
 
     // upsert (no insert): si por algún motivo ya existía una fila de perfil
@@ -199,6 +209,72 @@ export class AccesosService {
       password: contrasena,
     });
     if (error) throw new UnprocessableEntityException(error.message);
+    await this.guardarContrasena(admin, usuarioId, contrasena);
     return { contrasena };
+  }
+
+  async verContrasena(usuarioId: string) {
+    const { data, error } = await this.supabase
+      .administrador()
+      .auth.admin.getUserById(usuarioId);
+    if (error || !data.user) {
+      throw new NotFoundException('El usuario no existe.');
+    }
+    const cifrada = data.user.app_metadata?.contrasena_cifrada as
+      | string
+      | undefined;
+    if (!cifrada) return { contrasena: null };
+    try {
+      return { contrasena: this.descifrar(cifrada) };
+    } catch {
+      return { contrasena: null };
+    }
+  }
+
+  // Supabase solo guarda un hash de la contraseña, así que no se puede leer.
+  // Para que el administrador pueda consultarla se conserva, cifrada, la
+  // contraseña generada por el sistema en app_metadata (solo editable con la
+  // clave secreta). Si el usuario la cambia por su cuenta, deja de coincidir.
+  private async guardarContrasena(
+    admin: SupabaseClient,
+    usuarioId: string,
+    contrasena: string,
+  ) {
+    const { error } = await admin.auth.admin.updateUserById(usuarioId, {
+      app_metadata: { contrasena_cifrada: this.cifrar(contrasena) },
+    });
+    if (error) throw new UnprocessableEntityException(error.message);
+  }
+
+  private clave(): Buffer {
+    const semilla =
+      this.config.get<string>('CREDENCIALES_CLAVE') ??
+      this.config.get<string>('SUPABASE_SECRET_KEY') ??
+      '';
+    return createHash('sha256').update(semilla).digest();
+  }
+
+  private cifrar(texto: string): string {
+    const iv = randomBytes(12);
+    const cifrador = createCipheriv('aes-256-gcm', this.clave(), iv);
+    const datos = Buffer.concat([
+      cifrador.update(texto, 'utf8'),
+      cifrador.final(),
+    ]);
+    return [iv, cifrador.getAuthTag(), datos]
+      .map((parte) => parte.toString('base64url'))
+      .join('.');
+  }
+
+  private descifrar(valor: string): string {
+    const [iv, etiqueta, datos] = valor
+      .split('.')
+      .map((parte) => Buffer.from(parte, 'base64url'));
+    const descifrador = createDecipheriv('aes-256-gcm', this.clave(), iv);
+    descifrador.setAuthTag(etiqueta);
+    return Buffer.concat([
+      descifrador.update(datos),
+      descifrador.final(),
+    ]).toString('utf8');
   }
 }

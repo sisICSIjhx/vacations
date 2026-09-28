@@ -57,3 +57,7 @@ export function actualizarAcceso(usuarioId: string, cambios: { rol?: RolUsuario;
 export function restablecerContrasena(usuarioId: string): Promise<{ contrasena: string }> {
   return solicitar<{ contrasena: string }>(`/accesos/${usuarioId}/restablecer-contrasena`, { method: "POST" });
 }
+
+export function verContrasena(usuarioId: string): Promise<{ contrasena: string | null }> {
+  return solicitar<{ contrasena: string | null }>(`/accesos/${usuarioId}/contrasena`);
+}

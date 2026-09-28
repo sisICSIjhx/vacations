@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { BadgeCheck, Check, Copy, KeyRound, Pencil, Plus, Search, ShieldCheck, Trash2, UserCheck, UserX, X } from "lucide-react";
-import { accesosDisponibles, actualizarAcceso, crearAcceso, listarAccesos, restablecerContrasena, type AccesoCreado, type AccesoUsuario } from "../lib/api";
+import { BadgeCheck, Check, Copy, Eye, KeyRound, Pencil, Plus, Search, ShieldCheck, Trash2, UserCheck, UserX, X } from "lucide-react";
+import { accesosDisponibles, actualizarAcceso, crearAcceso, listarAccesos, restablecerContrasena, verContrasena, type AccesoCreado, type AccesoUsuario } from "../lib/api";
 import { supabaseConfigurado } from "../lib/supabase";
 import { Select } from "./Select";
 import type { DatosVacaciones, Empleado, EmpleadoFormulario, RolUsuario } from "../types";
@@ -150,6 +150,24 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
     }
   };
 
+  const consultar = async () => {
+    if (!accesoActual) return;
+    setGuardando(true);
+    setError(null);
+    try {
+      const { contrasena } = await verContrasena(accesoActual.usuarioId);
+      if (!contrasena) {
+        setError("No hay una contraseña guardada para este usuario (la cuenta ya existía antes o la cambió). Usa «Restablecer contraseña» para generar una nueva.");
+        return;
+      }
+      setResultado({ usuarioId: accesoActual.usuarioId, correo: accesoActual.correo ?? "", contrasena, rol: accesoActual.rol });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No fue posible consultar la contraseña.");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   const copiar = async (texto: string, campo: "correo" | "contrasena") => {
     await navigator.clipboard.writeText(texto);
     setCopiado(campo);
@@ -174,7 +192,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
           <>
             {resultado.contrasena ? (
               <>
-                <p className="empty-note">Comparte estos datos con {empleado.nombre} por el medio que prefieras (no quedan guardados en ningún otro lado; si cierras esta ventana no podrás volver a verlos).</p>
+                <p className="empty-note">Comparte estos datos con {empleado.nombre} por el medio que prefieras (puedes volver a consultarla con «Ver contraseña» mientras el usuario no la cambie).</p>
                 <div className="invite-link-box">
                   <code>{resultado.correo}</code>
                   <button type="button" className="secondary-button" onClick={() => copiar(resultado.correo, "correo")} title="Copiar correo">{copiado === "correo" ? <Check size={15} /> : <Copy size={15} />}{copiado === "correo" ? "Copiado" : "Copiar"}</button>
@@ -196,6 +214,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
               <label><span>Estado</span><Select value={activo ? "activo" : "inactivo"} onChange={(valor) => setActivo(valor === "activo")}><option value="activo">Activo</option><option value="inactivo">Inactivo</option></Select></label>
             </div>
             {accesoActual.correo && <p className="empty-note">Correo: {accesoActual.correo}</p>}
+            <button type="button" className="secondary-button" disabled={guardando} onClick={consultar} title="Ver contraseña"><Eye size={15} />Ver contraseña</button>
             <button type="button" className="secondary-button" disabled={guardando} onClick={restablecer} title="Restablecer contraseña"><KeyRound size={15} />Restablecer contraseña</button>
             {error && <div className="inline-alert error">{error}</div>}
             <footer><button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button><button className="primary-button" type="button" disabled={guardando} onClick={guardarCambios} title="Guardar cambios">{guardando ? "Guardando…" : "Guardar cambios"}</button></footer>

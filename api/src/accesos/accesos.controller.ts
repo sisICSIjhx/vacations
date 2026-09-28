@@ -44,6 +44,14 @@ export class AccesosController {
     return this.accesos.actualizar(usuarioId, dto);
   }
 
+  @Get(':usuarioId/contrasena')
+  @ApiOperation({
+    summary: 'Consulta la contraseña temporal generada por el sistema',
+  })
+  verContrasena(@Param('usuarioId') usuarioId: string) {
+    return this.accesos.verContrasena(usuarioId);
+  }
+
   @Post(':usuarioId/restablecer-contrasena')
   @ApiOperation({
     summary: 'Genera una nueva contraseña temporal para un acceso existente',
