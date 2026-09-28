@@ -3,15 +3,18 @@
 import { useMemo, useState } from "react";
 import { format, getDay, getDaysInMonth, isToday, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarDays, Palmtree, UserRound, UsersRound, X } from "lucide-react";
+import { CalendarDays, Palmtree, UsersRound, X } from "lucide-react";
 import type { DiaFestivo, SolicitudAusencia } from "../types";
 
-const encabezados = ["L", "M", "M", "J", "V", "S", "D"];
+const encabezados = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 interface YearCalendarProps {
   anio: number;
   solicitudes: SolicitudAusencia[];
   diasFestivos: DiaFestivo[];
+  // Vista de autoservicio (rol empleado): mantiene el tamaño de celda
+  // original, sin el espaciado adicional pensado para la vista de equipo.
+  compacto?: boolean;
 }
 
 interface DetalleDia {
@@ -24,7 +27,18 @@ function fechaIso(anio: number, mes: number, dia: number) {
   return `${anio}-${String(mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
 }
 
-export function YearCalendar({ anio, solicitudes, diasFestivos }: YearCalendarProps) {
+// Nombres completos suelen traer dos nombres de pila y dos apellidos
+// ("Julieth Guadalupe Lara Arguelles"); con solo las dos primeras palabras
+// se mostraban ambos nombres en vez de nombre + apellido. El primer apellido
+// es la penúltima palabra (la última es el materno), salvo que el nombre
+// completo ya tenga dos palabras o menos.
+function nombreCorto(nombreCompleto: string) {
+  const palabras = nombreCompleto.trim().split(/\s+/);
+  if (palabras.length <= 2) return palabras.join(" ");
+  return `${palabras[0]} ${palabras[palabras.length - 2]}`;
+}
+
+export function YearCalendar({ anio, solicitudes, diasFestivos, compacto }: YearCalendarProps) {
   const [detalle, setDetalle] = useState<DetalleDia | null>(null);
 
   const solicitudesPorDia = useMemo(() => {
@@ -54,18 +68,21 @@ export function YearCalendar({ anio, solicitudes, diasFestivos }: YearCalendarPr
 
   return (
     <>
-      <div className="year-calendar" aria-label={`Calendario de vacaciones ${anio}`}>
+      <div className={`year-calendar ${compacto ? "compacto" : ""}`} aria-label={`Calendario de vacaciones ${anio}`}>
         {Array.from({ length: 12 }, (_, mes) => {
           const primerDia = new Date(anio, mes, 1);
           const desplazamiento = (getDay(primerDia) + 6) % 7;
           const cantidadDias = getDaysInMonth(primerDia);
           const celdasFinales = 42 - desplazamiento - cantidadDias;
-          const iniciosMes = solicitudes.filter((solicitud) => solicitud.fechaInicio.slice(0, 7) === fechaIso(anio, mes, 1).slice(0, 7)).length;
+          const inicioMes = fechaIso(anio, mes, 1);
+          const finMes = fechaIso(anio, mes, cantidadDias);
+          const ausenciasMes = solicitudes.filter((solicitud) => solicitud.fechaInicio <= finMes && solicitud.fechaFin >= inicioMes).length;
+          const etiquetaAusenciasMes = `${ausenciasMes} ${ausenciasMes === 1 ? "ausencia" : "ausencias"}`;
           return (
             <section className="month-card" key={mes} aria-label={format(primerDia, "MMMM", { locale: es })}>
               <header className="month-header">
                 <h3>{format(primerDia, "MMMM", { locale: es })}</h3>
-                <span className="month-absence-count" title={iniciosMes ? `${iniciosMes} solicitudes inician este mes` : undefined}>{iniciosMes > 0 && <><CalendarDays size={12} />{iniciosMes}</>}</span>
+                <span className="month-absence-count" title={ausenciasMes ? `${etiquetaAusenciasMes} este mes` : undefined}>{ausenciasMes > 0 && <><UsersRound size={11} />{etiquetaAusenciasMes}</>}</span>
               </header>
               <div className="week-header" aria-hidden="true">
                 {encabezados.map((dia, indice) => <span key={`${dia}-${indice}`}>{dia}</span>)}
@@ -81,6 +98,7 @@ export function YearCalendar({ anio, solicitudes, diasFestivos }: YearCalendarPr
                   const fecha = new Date(anio, mes, numero);
                   const diaSemana = getDay(fecha);
                   const descripcionFecha = format(fecha, "EEEE d 'de' MMMM 'de' yyyy", { locale: es });
+                  const fechaCorta = format(fecha, "d 'de' MMMM", { locale: es });
                   return (
                     <button
                       className={`day-cell ${diaSemana === 6 ? "saturday" : ""} ${diaSemana === 0 ? "sunday" : ""} ${tieneContenido ? "has-content" : ""} ${ausencias.length ? "has-absence" : ""} ${ausencias.length > 1 ? "multiple" : ""} ${festivos.length ? "holiday" : ""} ${isToday(fecha) ? "today" : ""}`}
@@ -88,7 +106,6 @@ export function YearCalendar({ anio, solicitudes, diasFestivos }: YearCalendarPr
                       type="button"
                       disabled={!tieneContenido}
                       onClick={() => setDetalle({ fecha: clave, solicitudes: ausencias, festivos })}
-                      title={festivos.length ? `${descripcionFecha} — ${festivos.map((festivo) => festivo.nombre).join(", ")}` : undefined}
                       aria-label={`${descripcionFecha}${ausencias.length ? `, ${ausencias.length} personas ausentes` : ""}${festivos.length ? `, ${festivos[0].nombre}` : ""}`}
                     >
                       <span className="day-number">{numero}</span>
@@ -96,10 +113,19 @@ export function YearCalendar({ anio, solicitudes, diasFestivos }: YearCalendarPr
                       {ausencias.length > 0 && (
                         <span className="absence-stack" aria-hidden="true">
                           {ausencias.length === 1 ? (
-                            <span className="single-person-marker" style={{ background: ausencias[0].colorEmpleado }}><UserRound size={12} /></span>
-                          ) : <>
-                            <span className="people-count"><UsersRound size={11} /><b>{ausencias.length}</b></span>
-                          </>}
+                            <span className="day-pill single-pill" style={{ background: ausencias[0].colorEmpleado }}>1</span>
+                          ) : (
+                            <span className="day-pill multiple-pill">{ausencias.length}</span>
+                          )}
+                        </span>
+                      )}
+                      {tieneContenido && (
+                        <span className="day-tooltip" aria-hidden="true">
+                          <strong>{fechaCorta}</strong>
+                          {festivos.map((festivo) => <span className="day-tooltip-row holiday-row" key={festivo.id}>{festivo.nombre}</span>)}
+                          {ausencias.map((solicitud) => (
+                            <span className="day-tooltip-row" key={solicitud.id}><i style={{ background: solicitud.colorEmpleado }} />{nombreCorto(solicitud.nombreEmpleado)}</span>
+                          ))}
                         </span>
                       )}
                     </button>
@@ -121,7 +147,7 @@ export function YearCalendar({ anio, solicitudes, diasFestivos }: YearCalendarPr
                 <span className="eyebrow">Detalle del día</span>
                 <h2 id="day-detail-title">{format(parseISO(detalle.fecha), "EEEE d 'de' MMMM", { locale: es })}</h2>
               </div>
-              <button className="icon-button" type="button" onClick={() => setDetalle(null)} aria-label="Cerrar detalle"><X size={19} /></button>
+              <button className="icon-button" type="button" onClick={() => setDetalle(null)} aria-label="Cerrar detalle" title="Cerrar detalle"><X size={19} /></button>
             </header>
             {detalle.festivos.map((festivo) => (
               <div className="holiday-callout" key={festivo.id}>

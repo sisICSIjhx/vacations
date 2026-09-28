@@ -1,4 +1,4 @@
-import type { DatosVacaciones, Empleado, SolicitudAusencia } from "../types";
+import type { DatosVacaciones, Empleado, RevisionSolicitud, SolicitudAusencia } from "../types";
 
 const empleadosBase: Array<Omit<Empleado, "saldo"> & { saldo: Empleado["saldo"] }> = [
   {
@@ -67,6 +67,8 @@ const empleadosBase: Array<Omit<Empleado, "saldo"> & { saldo: Empleado["saldo"] 
     categoria: "Administrativo",
     fechaIngreso: "2025-02-03",
     estado: "activo",
+    jefeInmediatoId: "emp-julieth",
+    jefeInmediato: "Julieth Guadalupe Lara Arguelles",
     saldo: { anio: 2026, diasPorDerecho: 12, diasAcumulados: 8, diasDisponibles: 5, diasTomados: 0, diasPlaneados: 6, diasPendientes: 0, fechaCorte: "2026-08-10" },
   },
   {
@@ -84,6 +86,8 @@ const empleadosBase: Array<Omit<Empleado, "saldo"> & { saldo: Empleado["saldo"] 
     categoria: "Operativo",
     fechaIngreso: "2019-11-11",
     estado: "activo",
+    jefeInmediatoId: "emp-luis",
+    jefeInmediato: "Luis Alberto Santiago Toledo",
     saldo: { anio: 2026, diasPorDerecho: 24, diasAcumulados: 18, diasDisponibles: 16, diasTomados: 0, diasPlaneados: 6, diasPendientes: 5, fechaCorte: "2026-08-10" },
   },
   {
@@ -101,6 +105,8 @@ const empleadosBase: Array<Omit<Empleado, "saldo"> & { saldo: Empleado["saldo"] 
     categoria: "Operativo",
     fechaIngreso: "2018-06-04",
     estado: "activo",
+    jefeInmediatoId: "emp-angel",
+    jefeInmediato: "Ángel Gabriel Ortiz Alvarado",
     saldo: { anio: 2026, diasPorDerecho: 26, diasAcumulados: 20, diasDisponibles: 9, diasTomados: 11, diasPlaneados: 0, diasPendientes: 0, fechaCorte: "2026-08-10" },
   },
   {
@@ -118,22 +124,34 @@ const empleadosBase: Array<Omit<Empleado, "saldo"> & { saldo: Empleado["saldo"] 
     categoria: "Administrativo",
     fechaIngreso: "2023-09-18",
     estado: "activo",
+    jefeInmediatoId: "emp-julieth",
+    jefeInmediato: "Julieth Guadalupe Lara Arguelles",
     saldo: { anio: 2026, diasPorDerecho: 16, diasAcumulados: 13, diasDisponibles: 0, diasTomados: 13, diasPlaneados: 0, diasPendientes: 0, fechaCorte: "2026-08-10" },
   },
 ];
 
 const solicitudes: SolicitudAusencia[] = [
-  { id: "sol-1", empleadoId: "emp-karen", nombreEmpleado: "Karen Stefany Olmedo Ortiz", colorEmpleado: "#C58A17", fechaInicio: "2026-04-06", fechaFin: "2026-04-18", fechaReintegro: "2026-04-20", estado: "aprobada", dias: 13, origen: "formulario" },
-  { id: "sol-2", empleadoId: "emp-juan", nombreEmpleado: "Juan Pedro De la Cruz Salgado", colorEmpleado: "#3D83D5", fechaInicio: "2026-05-13", fechaFin: "2026-05-15", fechaReintegro: "2026-05-18", estado: "aprobada", dias: 3, origen: "csv" },
-  { id: "sol-3", empleadoId: "emp-luis", nombreEmpleado: "Luis Alberto Santiago Toledo", colorEmpleado: "#159A88", fechaInicio: "2026-05-25", fechaFin: "2026-05-29", fechaReintegro: "2026-05-30", estado: "aprobada", dias: 5, origen: "formulario" },
-  { id: "sol-4", empleadoId: "emp-juan", nombreEmpleado: "Juan Pedro De la Cruz Salgado", colorEmpleado: "#3D83D5", fechaInicio: "2026-06-01", fechaFin: "2026-06-08", fechaReintegro: "2026-06-09", estado: "aprobada", dias: 8, origen: "csv" },
-  { id: "sol-5", empleadoId: "emp-julieth", nombreEmpleado: "Julieth Guadalupe Lara Arguelles", colorEmpleado: "#5B5BD6", fechaInicio: "2026-07-31", fechaFin: "2026-08-08", fechaReintegro: "2026-08-10", estado: "aprobada", dias: 9, origen: "formulario" },
-  { id: "sol-6", empleadoId: "emp-abdiel", nombreEmpleado: "Abdiel Dagoberto Rivera Amaro", colorEmpleado: "#D94F70", fechaInicio: "2026-09-01", fechaFin: "2026-09-05", fechaReintegro: "2026-09-07", estado: "pendiente", dias: 5, origen: "csv" },
-  { id: "sol-7", empleadoId: "emp-angel", nombreEmpleado: "Ángel Gabriel Ortiz Alvarado", colorEmpleado: "#E07A3F", fechaInicio: "2026-09-10", fechaFin: "2026-09-18", fechaReintegro: "2026-09-19", estado: "pendiente", dias: 9, origen: "formulario" },
-  { id: "sol-8", empleadoId: "emp-angel", nombreEmpleado: "Ángel Gabriel Ortiz Alvarado", colorEmpleado: "#E07A3F", fechaInicio: "2026-10-12", fechaFin: "2026-10-19", fechaReintegro: "2026-10-20", estado: "planeada", dias: 8, origen: "formulario" },
-  { id: "sol-9", empleadoId: "emp-abdiel", nombreEmpleado: "Abdiel Dagoberto Rivera Amaro", colorEmpleado: "#D94F70", fechaInicio: "2026-12-26", fechaFin: "2026-12-31", fechaReintegro: "2027-01-02", estado: "planeada", dias: 6, origen: "csv" },
-  { id: "sol-10", empleadoId: "emp-nathanael", nombreEmpleado: "Nathanael Vitelio Gutierrez Alvarado", colorEmpleado: "#A855A2", fechaInicio: "2026-12-26", fechaFin: "2026-12-31", fechaReintegro: "2027-01-01", estado: "planeada", dias: 6, origen: "formulario" },
-  { id: "sol-11", empleadoId: "emp-nathanael", nombreEmpleado: "Nathanael Vitelio Gutierrez Alvarado", colorEmpleado: "#A855A2", fechaInicio: "2027-01-02", fechaFin: "2027-01-14", fechaReintegro: "2027-01-15", estado: "planeada", dias: 13, origen: "formulario" },
+  { id: "sol-1", empleadoId: "emp-karen", nombreEmpleado: "Karen Stefany Olmedo Ortiz", colorEmpleado: "#C58A17", fechaSolicitud: "2026-03-10T09:00:00.000Z", fechaInicio: "2026-04-06", fechaFin: "2026-04-18", fechaReintegro: "2026-04-20", estado: "aprobada", etapaAprobacion: "aprobada", dias: 13, origen: "formulario" },
+  { id: "sol-2", empleadoId: "emp-juan", nombreEmpleado: "Juan Pedro De la Cruz Salgado", colorEmpleado: "#3D83D5", fechaSolicitud: "2026-04-20T09:00:00.000Z", fechaInicio: "2026-05-13", fechaFin: "2026-05-15", fechaReintegro: "2026-05-18", estado: "aprobada", etapaAprobacion: "aprobada", dias: 3, origen: "csv" },
+  { id: "sol-3", empleadoId: "emp-luis", nombreEmpleado: "Luis Alberto Santiago Toledo", colorEmpleado: "#159A88", fechaSolicitud: "2026-05-02T09:00:00.000Z", fechaInicio: "2026-05-25", fechaFin: "2026-05-29", fechaReintegro: "2026-05-30", estado: "aprobada", etapaAprobacion: "aprobada", dias: 5, origen: "formulario" },
+  { id: "sol-4", empleadoId: "emp-juan", nombreEmpleado: "Juan Pedro De la Cruz Salgado", colorEmpleado: "#3D83D5", fechaSolicitud: "2026-05-10T09:00:00.000Z", fechaInicio: "2026-06-01", fechaFin: "2026-06-08", fechaReintegro: "2026-06-09", estado: "aprobada", etapaAprobacion: "aprobada", dias: 8, origen: "csv" },
+  { id: "sol-5", empleadoId: "emp-julieth", nombreEmpleado: "Julieth Guadalupe Lara Arguelles", colorEmpleado: "#5B5BD6", fechaSolicitud: "2026-07-05T09:00:00.000Z", fechaInicio: "2026-07-31", fechaFin: "2026-08-08", fechaReintegro: "2026-08-10", estado: "aprobada", etapaAprobacion: "aprobada", dias: 9, origen: "formulario" },
+  // Ya paso RRHH; ahora espera la revision de su jefe inmediato (Luis).
+  { id: "sol-6", empleadoId: "emp-abdiel", nombreEmpleado: "Abdiel Dagoberto Rivera Amaro", colorEmpleado: "#D94F70", fechaSolicitud: "2026-08-20T14:00:00.000Z", fechaInicio: "2026-10-19", fechaFin: "2026-10-23", fechaReintegro: "2026-10-26", estado: "pendiente", etapaAprobacion: "jefe_inmediato", dias: 5, origen: "csv" },
+  // Recien creada, todavia sin revisar por RRHH.
+  { id: "sol-7", empleadoId: "emp-angel", nombreEmpleado: "Ángel Gabriel Ortiz Alvarado", colorEmpleado: "#E07A3F", fechaSolicitud: "2026-09-11T16:00:00.000Z", fechaInicio: "2026-10-05", fechaFin: "2026-10-13", fechaReintegro: "2026-10-14", estado: "pendiente", etapaAprobacion: "rrhh", dias: 9, origen: "formulario", comentarios: "Viaje familiar ya reservado, agradezco revisión pronta." },
+  // Ya aprobo RRHH y Jefe inmediato (Angel); espera a Mesa Directiva.
+  { id: "sol-12", empleadoId: "emp-juan", nombreEmpleado: "Juan Pedro De la Cruz Salgado", colorEmpleado: "#3D83D5", fechaSolicitud: "2026-08-25T10:00:00.000Z", fechaInicio: "2026-10-26", fechaFin: "2026-10-30", fechaReintegro: "2026-11-02", estado: "pendiente", etapaAprobacion: "mesa_directiva", dias: 5, origen: "formulario" },
+  // Rechazada por RRHH: no cumplia la anticipación mínima de 15 días.
+  { id: "sol-13", empleadoId: "emp-karen", nombreEmpleado: "Karen Stefany Olmedo Ortiz", colorEmpleado: "#C58A17", fechaSolicitud: "2026-09-10T08:00:00.000Z", fechaInicio: "2026-09-19", fechaFin: "2026-09-20", fechaReintegro: "2026-09-22", estado: "rechazada", etapaAprobacion: "rechazada", etapaRechazo: "rrhh", dias: 2, origen: "formulario" },
+  // Aprobada por RRHH pero rechazada por su jefe inmediato (Luis).
+  { id: "sol-14", empleadoId: "emp-abdiel", nombreEmpleado: "Abdiel Dagoberto Rivera Amaro", colorEmpleado: "#D94F70", fechaSolicitud: "2026-08-01T08:00:00.000Z", fechaInicio: "2026-11-02", fechaFin: "2026-11-06", fechaReintegro: "2026-11-09", estado: "rechazada", etapaAprobacion: "rechazada", etapaRechazo: "jefe_inmediato", dias: 5, origen: "formulario" },
+  // Aprobada por RRHH y Jefe inmediato pero rechazada por Mesa Directiva.
+  { id: "sol-15", empleadoId: "emp-nathanael", nombreEmpleado: "Nathanael Vitelio Gutierrez Alvarado", colorEmpleado: "#A855A2", fechaSolicitud: "2026-08-15T08:00:00.000Z", fechaInicio: "2026-11-16", fechaFin: "2026-11-20", fechaReintegro: "2026-11-23", estado: "rechazada", etapaAprobacion: "rechazada", etapaRechazo: "mesa_directiva", dias: 5, origen: "formulario" },
+  { id: "sol-8", empleadoId: "emp-angel", nombreEmpleado: "Ángel Gabriel Ortiz Alvarado", colorEmpleado: "#E07A3F", fechaInicio: "2026-10-12", fechaFin: "2026-10-19", fechaReintegro: "2026-10-20", estado: "planeada", etapaAprobacion: "rrhh", dias: 8, origen: "formulario" },
+  { id: "sol-9", empleadoId: "emp-abdiel", nombreEmpleado: "Abdiel Dagoberto Rivera Amaro", colorEmpleado: "#D94F70", fechaInicio: "2026-12-26", fechaFin: "2026-12-31", fechaReintegro: "2027-01-02", estado: "planeada", etapaAprobacion: "rrhh", dias: 6, origen: "csv" },
+  { id: "sol-10", empleadoId: "emp-nathanael", nombreEmpleado: "Nathanael Vitelio Gutierrez Alvarado", colorEmpleado: "#A855A2", fechaInicio: "2026-12-26", fechaFin: "2026-12-31", fechaReintegro: "2027-01-01", estado: "planeada", etapaAprobacion: "rrhh", dias: 6, origen: "formulario" },
+  { id: "sol-11", empleadoId: "emp-nathanael", nombreEmpleado: "Nathanael Vitelio Gutierrez Alvarado", colorEmpleado: "#A855A2", fechaInicio: "2027-01-02", fechaFin: "2027-01-14", fechaReintegro: "2027-01-15", estado: "planeada", etapaAprobacion: "rrhh", dias: 13, origen: "formulario" },
 ];
 
 export const datosDemostracion: DatosVacaciones = {
@@ -162,9 +180,31 @@ export const datosDemostracion: DatosVacaciones = {
     { id: "fest-4", fecha: "2026-05-01", nombre: "Día del Trabajo" },
     { id: "fest-5", fecha: "2026-09-16", nombre: "Día de la Independencia" },
     { id: "fest-6", fecha: "2026-11-16", nombre: "Revolución Mexicana" },
+    { id: "fest-7", fecha: "2026-12-25", nombre: "Navidad" },
   ],
-  incidencias: [
-    { id: "inc-1", fila: 7, gravedad: "error", mensaje: "El periodo de Juan Pedro termina antes de comenzar (21/12/2026 → 25/04/2026)." },
-    { id: "inc-2", fila: 5, gravedad: "advertencia", mensaje: "Los días declarados por Nathanael no coinciden con los rangos capturados." },
+};
+
+// Historial de revisiones por solicitud, usado solo en modo demostración
+// (sin Supabase) para poder mostrar y probar la trazabilidad de las tres
+// etapas sin depender de una base de datos real.
+export const revisionesDemostracion: Record<string, RevisionSolicitud[]> = {
+  "sol-6": [
+    { id: "rev-6-1", solicitudId: "sol-6", etapa: "rrhh", decision: "aprobado", estadoResultante: "pendiente", nombreRevisor: "RRHH ICSI", comentario: "Cumple anticipación y saldo disponible.", creadoEn: "2026-08-21T12:00:00.000Z" },
+  ],
+  "sol-12": [
+    { id: "rev-12-1", solicitudId: "sol-12", etapa: "rrhh", decision: "aprobado", estadoResultante: "pendiente", nombreRevisor: "RRHH ICSI", comentario: "Cumple anticipación y saldo disponible.", creadoEn: "2026-08-26T09:00:00.000Z" },
+    { id: "rev-12-2", solicitudId: "sol-12", etapa: "jefe_inmediato", decision: "aprobado", estadoResultante: "pendiente", nombreRevisor: "Ángel Gabriel Ortiz Alvarado", comentario: "Sin inconvenientes operativos en el periodo.", creadoEn: "2026-08-28T15:30:00.000Z" },
+  ],
+  "sol-13": [
+    { id: "rev-13-1", solicitudId: "sol-13", etapa: "rrhh", decision: "rechazado", estadoResultante: "rechazada", nombreRevisor: "RRHH ICSI", comentario: "No cumple la anticipación mínima de 15 días.", creadoEn: "2026-09-10T09:15:00.000Z" },
+  ],
+  "sol-14": [
+    { id: "rev-14-1", solicitudId: "sol-14", etapa: "rrhh", decision: "aprobado", estadoResultante: "pendiente", nombreRevisor: "RRHH ICSI", comentario: "Cumple con los 15 días de anticipación.", creadoEn: "2026-10-05T09:00:00.000Z" },
+    { id: "rev-14-2", solicitudId: "sol-14", etapa: "jefe_inmediato", decision: "rechazado", estadoResultante: "rechazada", nombreRevisor: "Luis Alberto Santiago Toledo", comentario: "Coincide con el cierre operativo de noviembre.", creadoEn: "2026-10-08T11:00:00.000Z" },
+  ],
+  "sol-15": [
+    { id: "rev-15-1", solicitudId: "sol-15", etapa: "rrhh", decision: "aprobado", estadoResultante: "pendiente", nombreRevisor: "RRHH ICSI", comentario: "Cumple con los 15 días de anticipación.", creadoEn: "2026-08-16T09:00:00.000Z" },
+    { id: "rev-15-2", solicitudId: "sol-15", etapa: "jefe_inmediato", decision: "aprobado", estadoResultante: "pendiente", nombreRevisor: "Julieth Guadalupe Lara Arguelles", comentario: "Sin inconvenientes operativos.", creadoEn: "2026-08-19T10:00:00.000Z" },
+    { id: "rev-15-3", solicitudId: "sol-15", etapa: "mesa_directiva", decision: "rechazado", estadoResultante: "rechazada", nombreRevisor: "Mesa Directiva ICSI", comentario: "Se empalma con el cierre financiero anual.", creadoEn: "2026-08-22T17:00:00.000Z" },
   ],
 };

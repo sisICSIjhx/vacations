@@ -5,6 +5,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { SupabaseService } from '../common/supabase.service';
 import { ActualizarAccesoDto, CrearAccesoDto } from './dto';
 
@@ -94,35 +95,85 @@ export class AccesosService {
         password: contrasena,
         email_confirm: true,
       });
+
+    let usuarioId: string;
+    let contrasenaGenerada: string | null = contrasena;
+
     if (errorCreado || !creado?.user) {
-      throw new UnprocessableEntityException(
-        errorCreado?.message ??
-          'No fue posible crear el acceso. Si el correo ya está registrado, vincula la cuenta existente en vez de crear una nueva.',
+      // Un correo "ya registrado" suele significar que la cuenta se creó antes
+      // desde el panel de Supabase (el flujo manual que esta pantalla
+      // reemplaza) sin llegar a crearle su fila en perfiles_usuario. En vez de
+      // fallar, se busca esa cuenta y se vincula: no se toca su contraseña.
+      const yaRegistrado = /already.*registered|already.*exists/i.test(
+        errorCreado?.message ?? '',
       );
+      if (!yaRegistrado) {
+        throw new UnprocessableEntityException(
+          errorCreado?.message ?? 'No fue posible crear el acceso.',
+        );
+      }
+      const existente = await this.buscarUsuarioPorCorreo(admin, dto.correo);
+      if (!existente) {
+        throw new UnprocessableEntityException(
+          'El correo ya está registrado en Supabase, pero no se pudo encontrar la cuenta para vincularla. Revisa Authentication > Users en Supabase.',
+        );
+      }
+      usuarioId = existente.id;
+      contrasenaGenerada = null;
+    } else {
+      usuarioId = creado.user.id;
     }
 
-    const { error: errorPerfil } = await db.from('perfiles_usuario').insert({
-      usuario_id: creado.user.id,
-      empleado_id: dto.empleadoId,
-      nombre_visible: empleado.nombre_completo,
-      rol: dto.rol,
-      activo: true,
-    });
+    // upsert (no insert): si por algún motivo ya existía una fila de perfil
+    // para este usuario (p. ej. vinculada a otro empleado por error), se
+    // corrige en vez de fallar por la llave primaria duplicada.
+    const { error: errorPerfil } = await db.from('perfiles_usuario').upsert(
+      {
+        usuario_id: usuarioId,
+        empleado_id: dto.empleadoId,
+        nombre_visible: empleado.nombre_completo,
+        rol: dto.rol,
+        activo: true,
+      },
+      { onConflict: 'usuario_id' },
+    );
     if (errorPerfil) {
-      await admin.auth.admin.deleteUser(creado.user.id);
+      // Solo se limpia la cuenta si la creamos en esta misma llamada; una
+      // cuenta preexistente que se intentó vincular no debe borrarse.
+      if (contrasenaGenerada) await admin.auth.admin.deleteUser(usuarioId);
       throw new UnprocessableEntityException(errorPerfil.message);
     }
 
     return {
-      usuarioId: creado.user.id,
+      usuarioId,
       correo: dto.correo,
-      contrasena,
+      contrasena: contrasenaGenerada,
       rol: dto.rol,
     };
   }
 
   private generarContrasena(): string {
     return randomBytes(12).toString('base64url');
+  }
+
+  private async buscarUsuarioPorCorreo(
+    admin: SupabaseClient,
+    correo: string,
+  ): Promise<User | null> {
+    let pagina = 1;
+    for (;;) {
+      const { data, error } = await admin.auth.admin.listUsers({
+        page: pagina,
+        perPage: 200,
+      });
+      if (error || !data) return null;
+      const encontrado = data.users.find(
+        (usuario) => usuario.email?.toLowerCase() === correo.toLowerCase(),
+      );
+      if (encontrado) return encontrado;
+      if (data.users.length < 200) return null;
+      pagina += 1;
+    }
   }
 
   async actualizar(usuarioId: string, dto: ActualizarAccesoDto) {
@@ -139,5 +190,15 @@ export class AccesosService {
       .eq('usuario_id', usuarioId);
     if (error) throw new UnprocessableEntityException(error.message);
     return { actualizado: true };
+  }
+
+  async restablecerContrasena(usuarioId: string) {
+    const admin = this.supabase.administrador();
+    const contrasena = this.generarContrasena();
+    const { error } = await admin.auth.admin.updateUserById(usuarioId, {
+      password: contrasena,
+    });
+    if (error) throw new UnprocessableEntityException(error.message);
+    return { contrasena };
   }
 }

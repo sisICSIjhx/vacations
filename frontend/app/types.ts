@@ -3,8 +3,7 @@ export type VistaId =
   | "calendario"
   | "personal"
   | "solicitudes"
-  | "catalogos"
-  | "importaciones";
+  | "catalogos";
 
 export type EstadoSolicitud =
   | "planeada"
@@ -12,6 +11,41 @@ export type EstadoSolicitud =
   | "aprobada"
   | "rechazada"
   | "cancelada";
+
+// Etapa granular del flujo de aprobacion mientras estado permanece en
+// "pendiente". Una vez decidida, converge con estado: 'aprobada' solo se
+// alcanza tras la aprobacion de Mesa Directiva; 'rechazada' puede ocurrir en
+// cualquiera de las tres etapas (ver etapaRechazo para saber cual).
+export type EtapaAprobacion =
+  | "rrhh"
+  | "jefe_inmediato"
+  | "mesa_directiva"
+  | "aprobada"
+  | "rechazada";
+
+export type RolUsuario = "administrador" | "rrhh" | "mesa_directiva" | "empleado";
+
+export type DecisionRevision = "aprobado" | "rechazado";
+
+export interface RevisionSolicitud {
+  id: string;
+  solicitudId: string;
+  etapa: Exclude<EtapaAprobacion, "aprobada" | "rechazada">;
+  decision: DecisionRevision;
+  estadoResultante: string;
+  nombreRevisor?: string;
+  comentario?: string;
+  creadoEn: string;
+}
+
+export interface PerfilUsuario {
+  usuarioId: string;
+  empleadoId?: string;
+  nombreVisible: string;
+  rol: RolUsuario;
+  activo: boolean;
+  esJefeInmediato: boolean;
+}
 
 export interface Catalogo {
   id: string;
@@ -48,6 +82,8 @@ export interface Empleado {
   categoria: string;
   fechaIngreso?: string;
   estado: "activo" | "inactivo";
+  jefeInmediatoId?: string;
+  jefeInmediato?: string;
   saldo: SaldoVacaciones;
 }
 
@@ -58,10 +94,13 @@ export interface SolicitudAusencia {
   tipoAusenciaId?: string;
   nombreEmpleado: string;
   colorEmpleado: string;
+  fechaSolicitud?: string;
   fechaInicio: string;
   fechaFin: string;
   fechaReintegro?: string;
   estado: EstadoSolicitud;
+  etapaAprobacion: EtapaAprobacion;
+  etapaRechazo?: Exclude<EtapaAprobacion, "aprobada" | "rechazada">;
   dias: number;
   comentarios?: string;
   origen: "administrador" | "csv" | "formulario" | "empleado" | "integracion";
@@ -74,13 +113,6 @@ export interface DiaFestivo {
   sedeId?: string;
 }
 
-export interface IncidenciaImportacion {
-  id: string;
-  fila: number;
-  gravedad: "advertencia" | "error";
-  mensaje: string;
-}
-
 export interface DatosVacaciones {
   empleados: Empleado[];
   solicitudes: SolicitudAusencia[];
@@ -89,7 +121,6 @@ export interface DatosVacaciones {
   proyectos: Catalogo[];
   categorias: Catalogo[];
   tiposAusencia: Catalogo[];
-  incidencias: IncidenciaImportacion[];
 }
 
 export interface FiltrosCalendario {
@@ -112,16 +143,17 @@ export interface EmpleadoFormulario {
   proyectoId: string;
   categoriaId: string;
   fechaIngreso: string;
+  jefeInmediatoId: string;
   diasPorDerecho: number;
   diasAcumulados: number;
   diasDisponibles: number;
 }
 
 export interface SolicitudFormulario {
+  id?: string;
   empleadoId: string;
   fechaInicio: string;
   fechaFin: string;
   fechaReintegro: string;
-  estado: EstadoSolicitud;
   comentarios: string;
 }

@@ -43,4 +43,12 @@ export class AccesosController {
   ) {
     return this.accesos.actualizar(usuarioId, dto);
   }
+
+  @Post(':usuarioId/restablecer-contrasena')
+  @ApiOperation({
+    summary: 'Genera una nueva contraseña temporal para un acceso existente',
+  })
+  restablecerContrasena(@Param('usuarioId') usuarioId: string) {
+    return this.accesos.restablecerContrasena(usuarioId);
+  }
 }

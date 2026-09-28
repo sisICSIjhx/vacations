@@ -40,7 +40,7 @@ export function DashboardView({ datos, onNavigate }: DashboardViewProps) {
           <h1>Buenos días, Administración</h1>
           <p>Esta es la disponibilidad prevista del personal para las próximas semanas.</p>
         </div>
-        <button className="primary-button" type="button" onClick={() => onNavigate("calendario")}>Abrir calendario <ArrowUpRight size={17} /></button>
+        <button className="primary-button" type="button" onClick={() => onNavigate("calendario")} title="Abrir calendario">Abrir calendario <ArrowUpRight size={17} /></button>
       </section>
 
       <section className="kpi-grid">
@@ -52,7 +52,7 @@ export function DashboardView({ datos, onNavigate }: DashboardViewProps) {
 
       <div className="dashboard-columns">
         <section className="content-card upcoming-card">
-          <header className="section-heading"><div><span className="eyebrow">Próximos 30 días</span><h2>Ausencias programadas</h2></div><button className="text-button" onClick={() => onNavigate("solicitudes")}>Ver solicitudes</button></header>
+          <header className="section-heading"><div><span className="eyebrow">Próximos 30 días</span><h2>Ausencias programadas</h2></div><button className="text-button" type="button" onClick={() => onNavigate("solicitudes")} title="Ver solicitudes">Ver solicitudes</button></header>
           <div className="timeline-list">
             {proximas.length === 0 ? <p className="empty-note">No hay ausencias programadas en este periodo.</p> : proximas.slice(0, 6).map((solicitud) => (
               <article key={solicitud.id}>
