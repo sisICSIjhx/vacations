@@ -17,6 +17,7 @@ import { Select } from "./components/Select";
 import { YearCalendar } from "./components/YearCalendar";
 import { useVacationSystem } from "./hooks/useVacationSystem";
 import { obtenerSupabase, supabaseConfigurado } from "./lib/supabase";
+import { siguienteDiaHabil } from "./lib/diaHabil";
 import type { DatosVacaciones, FiltrosCalendario, PerfilUsuario, RolUsuario, SolicitudFormulario, VistaId } from "./types";
 
 const filtrosIniciales: FiltrosCalendario = { empleadoId: "", sedeId: "", proyectoId: "", categoriaId: "", estado: "" };
@@ -176,7 +177,7 @@ function Sidebar({ vista, opcionesPrincipales, opciones, solicitudesActivas, abi
 function RequestModal({ datos, perfil, actualizando, onClose, onCreate }: { datos: DatosVacaciones; perfil: PerfilUsuario | null; actualizando: boolean; onClose: () => void; onCreate: (formulario: SolicitudFormulario) => Promise<boolean> }) {
   const esAutoservicio = perfil?.rol === "empleado";
   const [formulario, setFormulario] = useState<SolicitudFormulario>({ empleadoId: esAutoservicio ? perfil?.empleadoId ?? "" : "", fechaInicio: "", fechaFin: "", fechaReintegro: "", comentarios: "" });
-  const actualizar = (campo: keyof SolicitudFormulario, valor: string) => setFormulario((actual) => ({ ...actual, [campo]: valor }));
+  const actualizar = (campo: keyof SolicitudFormulario, valor: string) => setFormulario((actual) => ({ ...actual, [campo]: valor, ...(campo === "fechaFin" ? { fechaReintegro: siguienteDiaHabil(valor) } : {}) }));
   const opcionesEmpleado = esAutoservicio ? datos.empleados.filter((emp) => emp.id === perfil?.empleadoId) : datos.empleados;
   const empleadoElegido = datos.empleados.find((emp) => emp.id === formulario.empleadoId);
   // Una cuenta de autoservicio sin empleado_id vinculado en perfiles_usuario
@@ -208,7 +209,7 @@ function RequestModal({ datos, perfil, actualizando, onClose, onCreate }: { dato
                   )}
                 </>
               )}
-              <label><span>Inicio *</span><input required type="date" value={formulario.fechaInicio} onChange={(e) => actualizar("fechaInicio", e.target.value)} /></label><label><span>Fin *</span><input required type="date" min={formulario.fechaInicio} value={formulario.fechaFin} onChange={(e) => actualizar("fechaFin", e.target.value)} /></label><label><span>Reintegro</span><input type="date" value={formulario.fechaReintegro} onChange={(e) => actualizar("fechaReintegro", e.target.value)} /></label><label className="span-two"><span>Comentarios</span><textarea rows={3} value={formulario.comentarios} onChange={(e) => actualizar("comentarios", e.target.value)} /></label>
+              <label><span>Inicio *</span><input required type="date" value={formulario.fechaInicio} onChange={(e) => actualizar("fechaInicio", e.target.value)} /></label><label><span>Fin *</span><input required type="date" min={formulario.fechaInicio} value={formulario.fechaFin} onChange={(e) => actualizar("fechaFin", e.target.value)} /></label><label><span>Reintegro *</span><input required readOnly type="date" value={formulario.fechaReintegro} title="Siguiente día hábil después de la fecha final" /></label><div className="field-slot" style={{ display: "flex", flexDirection: "column" }}><span style={{ display: "block", marginBottom: 6, color: "var(--muted)", fontSize: 12, fontWeight: 650 }}>Tipo de solicitud</span><button type="button" className="secondary-button" aria-pressed={!!formulario.urgente} title="Marca la solicitud como no planeada; el comentario será obligatorio" onClick={() => setFormulario((actual) => ({ ...actual, urgente: !actual.urgente }))} style={{ width: "100%", minHeight: 48, justifyContent: "center", ...(formulario.urgente ? { background: "#fdecea", borderColor: "#d93025", color: "#b3261e" } : {}) }}>{formulario.urgente ? "🚨 Urgente" : "Marcar como urgente"}</button></div><label className="span-two"><span>Comentarios{formulario.urgente ? " *" : ""}</span><textarea required={!!formulario.urgente} rows={3} value={formulario.comentarios} onChange={(e) => actualizar("comentarios", e.target.value)} placeholder={formulario.urgente ? "Explica el motivo urgente (obligatorio)" : undefined} /></label>
             </div>
             <p className="empty-note">La solicitud entra al flujo de aprobación: RRHH → Jefe inmediato → Mesa Directiva.</p>
           </>
@@ -360,7 +361,7 @@ export default function VacationApp() {
             <button className="icon-button" type="button" onClick={cerrarSesion} aria-label="Cerrar sesión" title="Cerrar sesión"><LogOut size={18} /></button>
           </div>
         </header>
-        {cambiandoContrasena && <ChangePasswordModal onClose={() => setCambiandoContrasena(false)} />}
+        {(cambiandoContrasena || sesion?.user.app_metadata?.debe_cambiar_contrasena === true) && <ChangePasswordModal obligatorio={sesion?.user.app_metadata?.debe_cambiar_contrasena === true} onClose={() => setCambiandoContrasena(false)} />}
         {sistema.modoDemostracion && <div className="demo-banner"><span><ShieldCheck size={15} /><strong>Demostración</strong> Los cambios son temporales hasta conectar Supabase.</span></div>}
         {sistema.error && <div className="global-error">{sistema.error}</div>}
         <main className="app-main">

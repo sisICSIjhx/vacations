@@ -29,12 +29,20 @@ export class CrearAccesoDto {
   @IsOptional()
   @IsBoolean()
   permitirCambioContrasena?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  forzarCambioContrasena?: boolean;
 }
 
 export class ActualizarAccesoDto {
   @IsOptional()
   @IsBoolean()
   permitirCambioContrasena?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  forzarCambioContrasena?: boolean;
 
   @IsOptional()
   @IsIn(ROLES_VALIDOS)
@@ -53,6 +61,10 @@ export class RestablecerContrasenaDto {
   @IsOptional()
   @IsBoolean()
   permitirCambio?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  forzarCambio?: boolean;
 }
 
 export class CambiarContrasenaDto {

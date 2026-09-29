@@ -3,10 +3,13 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { cambiarMiContrasena } from "../lib/api";
+import { obtenerSupabase } from "../lib/supabase";
 
 // El administrador decide por usuario si puede cambiar su contraseña; el
 // servidor vuelve a comprobarlo, esto solo es la pantalla.
-export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+// Con `obligatorio` (el administrador restableció la contraseña y pidió
+// cambiarla) no se puede cerrar hasta que el usuario elija una nueva.
+export function ChangePasswordModal({ onClose, obligatorio = false }: { onClose: () => void; obligatorio?: boolean }) {
   const [actual, setActual] = useState("");
   const [nueva, setNueva] = useState("");
   const [confirmacion, setConfirmacion] = useState("");
@@ -21,6 +24,8 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       await cambiarMiContrasena(actual, nueva);
+      // Renueva la sesión para que se actualice la marca de cambio obligatorio.
+      await obtenerSupabase()?.auth.refreshSession();
       setListo(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No fue posible cambiar la contraseña.");
@@ -30,9 +35,9 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) onClose(); }}>
+    <div className="modal-backdrop" role="presentation" onMouseDown={(evento) => { if (!obligatorio && evento.target === evento.currentTarget) onClose(); }}>
       <form className="form-modal" onSubmit={guardar}>
-        <header><div><span className="eyebrow">Mi cuenta</span><h2>Cambiar contraseña</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar" title="Cerrar"><X size={19} /></button></header>
+        <header><div><span className="eyebrow">Mi cuenta</span><h2>{obligatorio && !listo ? "Elige tu nueva contraseña" : "Cambiar contraseña"}</h2></div>{(!obligatorio || listo) && <button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar" title="Cerrar"><X size={19} /></button>}</header>
         {listo ? (
           <>
             <p className="empty-note">Tu contraseña se actualizó. Úsala la próxima vez que inicies sesión.</p>
@@ -40,6 +45,7 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
           </>
         ) : (
           <>
+            {obligatorio && <p className="empty-note">La administración restableció tu contraseña. Por seguridad, debes cambiar la contraseña temporal por una propia antes de continuar.</p>}
             <div className="form-grid two-columns">
               <label className="span-two"><span>Contraseña actual *</span><input required type="password" autoComplete="current-password" value={actual} onChange={(e) => setActual(e.target.value)} /></label>
               <label className="span-two"><span>Nueva contraseña * (mínimo 8 caracteres)</span><input required minLength={8} maxLength={72} type="password" autoComplete="new-password" value={nueva} onChange={(e) => setNueva(e.target.value)} /></label>
@@ -47,7 +53,7 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
             </div>
             <p className="empty-note">Por política interna, la administración puede consultar las contraseñas de la plataforma. No reutilices una contraseña personal.</p>
             {error && <div className="inline-alert error">{error}</div>}
-            <footer><button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button><button className="primary-button" type="submit" disabled={guardando} title="Guardar">{guardando ? "Guardando…" : "Cambiar contraseña"}</button></footer>
+            <footer>{!obligatorio && <button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button>}<button className="primary-button" type="submit" disabled={guardando} title="Guardar">{guardando ? "Guardando…" : "Cambiar contraseña"}</button></footer>
           </>
         )}
       </form>

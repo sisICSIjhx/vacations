@@ -81,7 +81,11 @@ export class AccesosController {
     @Param('usuarioId') usuarioId: string,
     @Body() dto: RestablecerContrasenaDto,
   ) {
-    return this.accesos.restablecerContrasena(usuarioId, dto.permitirCambio);
+    return this.accesos.restablecerContrasena(
+      usuarioId,
+      dto.permitirCambio,
+      dto.forzarCambio,
+    );
   }
 }
 

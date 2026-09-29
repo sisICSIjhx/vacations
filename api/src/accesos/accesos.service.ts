@@ -143,12 +143,10 @@ export class AccesosService {
       }
     } else {
       usuarioId = creado.user.id;
-      await this.guardarContrasena(
-        admin,
-        usuarioId,
-        contrasena,
-        dto.permitirCambioContrasena ?? false,
-      );
+      await this.guardarContrasena(admin, usuarioId, contrasena, {
+        permitirCambio: dto.permitirCambioContrasena ?? false,
+        forzarCambio: dto.forzarCambioContrasena ?? false,
+      });
     }
 
     // upsert (no insert): si por algún motivo ya existía una fila de perfil
@@ -210,18 +208,21 @@ export class AccesosService {
     if (dto.activo !== undefined) cambios.activo = dto.activo;
     if (dto.empleadoId) cambios.empleado_id = dto.empleadoId;
 
+    const meta: Record<string, boolean> = {};
     if (dto.permitirCambioContrasena !== undefined) {
+      meta.puede_cambiar_contrasena = dto.permitirCambioContrasena;
+    }
+    if (dto.forzarCambioContrasena !== undefined) {
+      meta.debe_cambiar_contrasena = dto.forzarCambioContrasena;
+    }
+    if (Object.keys(meta).length) {
       const { error: errorMeta } = await this.supabase
         .administrador()
-        .auth.admin.updateUserById(usuarioId, {
-          app_metadata: {
-            puede_cambiar_contrasena: dto.permitirCambioContrasena,
-          },
-        });
+        .auth.admin.updateUserById(usuarioId, { app_metadata: meta });
       if (errorMeta) throw new UnprocessableEntityException(errorMeta.message);
     }
     if (!Object.keys(cambios).length) {
-      return { actualizado: dto.permitirCambioContrasena !== undefined };
+      return { actualizado: Object.keys(meta).length > 0 };
     }
 
     const { error } = await db
@@ -232,14 +233,21 @@ export class AccesosService {
     return { actualizado: true };
   }
 
-  async restablecerContrasena(usuarioId: string, permitirCambio?: boolean) {
+  async restablecerContrasena(
+    usuarioId: string,
+    permitirCambio?: boolean,
+    forzarCambio?: boolean,
+  ) {
     const admin = this.supabase.administrador();
     const contrasena = this.generarContrasena();
     const { error } = await admin.auth.admin.updateUserById(usuarioId, {
       password: contrasena,
     });
     if (error) throw new UnprocessableEntityException(error.message);
-    await this.guardarContrasena(admin, usuarioId, contrasena, permitirCambio);
+    await this.guardarContrasena(admin, usuarioId, contrasena, {
+      permitirCambio,
+      forzarCambio: forzarCambio ?? false,
+    });
     return { contrasena };
   }
 
@@ -253,7 +261,12 @@ export class AccesosService {
     const { data, error } = await admin.auth.admin.getUserById(usuarioId);
     if (error || !data.user)
       throw new NotFoundException('El usuario no existe.');
-    if (data.user.app_metadata?.puede_cambiar_contrasena !== true) {
+    // Con «cambio obligatorio» activo el usuario puede cambiarla aunque el
+    // permiso general esté apagado: es justo lo que se le está pidiendo.
+    if (
+      data.user.app_metadata?.puede_cambiar_contrasena !== true &&
+      data.user.app_metadata?.debe_cambiar_contrasena !== true
+    ) {
       throw new ForbiddenException(
         'El administrador no habilitó el cambio de contraseña para tu cuenta.',
       );
@@ -273,7 +286,9 @@ export class AccesosService {
     if (errorCambio)
       throw new UnprocessableEntityException(errorCambio.message);
     // Se conserva cifrada para que el administrador pueda consultarla con MFA.
-    await this.guardarContrasena(admin, usuarioId, contrasenaNueva);
+    await this.guardarContrasena(admin, usuarioId, contrasenaNueva, {
+      forzarCambio: false,
+    });
     return { actualizado: true };
   }
 
@@ -302,14 +317,17 @@ export class AccesosService {
     admin: SupabaseClient,
     usuarioId: string,
     contrasena: string,
-    permitirCambio?: boolean,
+    opciones: { permitirCambio?: boolean; forzarCambio?: boolean } = {},
   ) {
     const { error } = await admin.auth.admin.updateUserById(usuarioId, {
       app_metadata: {
         contrasena_cifrada: this.cifrar(contrasena),
-        ...(permitirCambio === undefined
+        ...(opciones.permitirCambio === undefined
           ? {}
-          : { puede_cambiar_contrasena: permitirCambio }),
+          : { puede_cambiar_contrasena: opciones.permitirCambio }),
+        ...(opciones.forzarCambio === undefined
+          ? {}
+          : { debe_cambiar_contrasena: opciones.forzarCambio }),
       },
     });
     if (error) throw new UnprocessableEntityException(error.message);

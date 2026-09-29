@@ -31,6 +31,7 @@ const formularioVacio: EmpleadoFormulario = {
   numeroEmpleado: "",
   nombre: "",
   correo: "",
+  telefonoWhatsapp: "",
   curp: "",
   nss: "",
   color: "#2563EB",
@@ -50,6 +51,7 @@ function desdeEmpleado(empleado: Empleado): EmpleadoFormulario {
     numeroEmpleado: empleado.numeroEmpleado,
     nombre: empleado.nombre,
     correo: empleado.correo ?? "",
+    telefonoWhatsapp: empleado.telefonoWhatsapp ?? "",
     curp: empleado.curp ?? "",
     nss: empleado.nss ?? "",
     color: empleado.color,
@@ -91,6 +93,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
   const [resultado, setResultado] = useState<AccesoCreado | null>(null);
   const [copiado, setCopiado] = useState<"correo" | "contrasena" | null>(null);
   const [permitirCambio, setPermitirCambio] = useState(accesoActual?.puedeCambiarContrasena ?? false);
+  const [forzarCambio, setForzarCambio] = useState(false);
   const [mfa, setMfa] = useState<{ factorId: string; qr?: string; secreto?: string } | null>(null);
   const [codigoMfa, setCodigoMfa] = useState("");
 
@@ -113,7 +116,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
     setGuardando(true);
     setError(null);
     try {
-      const creado = await crearAcceso({ empleadoId: empleado.id, correo, rol, permitirCambioContrasena: permitirCambio });
+      const creado = await crearAcceso({ empleadoId: empleado.id, correo, rol, permitirCambioContrasena: permitirCambio, forzarCambioContrasena: forzarCambio });
       setResultado(creado);
       onRefrescar();
     } catch (err) {
@@ -128,7 +131,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
     setGuardando(true);
     setError(null);
     try {
-      await actualizarAcceso(accesoActual.usuarioId, { rol, activo, permitirCambioContrasena: permitirCambio });
+      await actualizarAcceso(accesoActual.usuarioId, { rol, activo, permitirCambioContrasena: permitirCambio, ...(forzarCambio ? { forzarCambioContrasena: true } : {}) });
       onRefrescar();
       onClose();
     } catch (err) {
@@ -144,7 +147,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
     setGuardando(true);
     setError(null);
     try {
-      const { contrasena } = await restablecerContrasena(accesoActual.usuarioId, permitirCambio);
+      const { contrasena } = await restablecerContrasena(accesoActual.usuarioId, permitirCambio, forzarCambio);
       setResultado({ usuarioId: accesoActual.usuarioId, correo: accesoActual.correo ?? "", contrasena, rol: accesoActual.rol });
     } catch (err) {
       setError(err instanceof Error ? err.message : "No fue posible restablecer la contraseña.");
@@ -255,7 +258,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
             <footer><button className="primary-button" type="button" onClick={onClose} title="Cerrar">Listo</button></footer>
           </>
         ) : mfa ? (
-          <form onSubmit={confirmarMfa}>
+          <form className="access-stack" onSubmit={confirmarMfa}>
             {mfa.qr ? (
               <>
                 <p className="empty-note">Para ver contraseñas necesitas un código de tu app de autenticación. Escanea este QR con Google Authenticator, Microsoft Authenticator, Authy o similar, y escribe el código de 6 dígitos que muestre.</p>
@@ -271,18 +274,33 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
             <footer><button className="secondary-button" type="button" onClick={() => { setMfa(null); setCodigoMfa(""); setError(null); }} title="Cancelar">Cancelar</button><button className="primary-button" type="submit" disabled={guardando} title="Verificar">{guardando ? "Verificando…" : "Verificar"}</button></footer>
           </form>
         ) : accesoActual ? (
-          <>
+          <div className="access-stack">
             <div className="form-grid two-columns">
               <label><span>Rol</span>{selectorRol(rol, setRol)}</label>
               <label><span>Estado</span><Select value={activo ? "activo" : "inactivo"} onChange={(valor) => setActivo(valor === "activo")}><option value="activo">Activo</option><option value="inactivo">Inactivo</option></Select></label>
             </div>
-            {accesoActual.correo && <p className="empty-note">Correo: {accesoActual.correo}</p>}
-            <label className="check-row"><input type="checkbox" checked={permitirCambio} onChange={(e) => setPermitirCambio(e.target.checked)} /><span>Permitir que el usuario cambie su contraseña</span></label>
-            <button type="button" className="secondary-button" disabled={guardando} onClick={consultar} title="Ver contraseña"><Eye size={15} />Ver contraseña</button>
-            <button type="button" className="secondary-button" disabled={guardando} onClick={restablecer} title="Restablecer contraseña"><KeyRound size={15} />Restablecer contraseña</button>
+            {accesoActual.correo && <p className="empty-note">Correo: <strong>{accesoActual.correo}</strong></p>}
+            <label className="option-card">
+              <div className="option-text">
+                <strong>Permitir que el usuario cambie su contraseña</strong>
+                <small>{permitirCambio ? "Verá un botón con una llave en la barra superior para cambiarla cuando quiera. Tú podrás seguir consultándola con tu código del autenticador." : "El usuario solo podrá entrar con la contraseña que le compartas. Si la olvida, tendrás que restablecérsela."}</small>
+              </div>
+              <input type="checkbox" role="switch" className="switch" checked={permitirCambio} onChange={(e) => setPermitirCambio(e.target.checked)} />
+            </label>
+            <label className="option-card">
+              <div className="option-text">
+                <strong>Al restablecer, pedir al usuario que cambie la contraseña al iniciar sesión</strong>
+                <small>Al entrar con la contraseña temporal, el sistema le exigirá elegir una nueva antes de continuar. Tú podrás seguir consultándola con tu código del autenticador.</small>
+              </div>
+              <input type="checkbox" role="switch" className="switch" checked={forzarCambio} onChange={(e) => setForzarCambio(e.target.checked)} />
+            </label>
+            <div className="action-row">
+              <button type="button" className="secondary-button" disabled={guardando} onClick={consultar} title="Ver contraseña (requiere código del autenticador)"><Eye size={15} />Ver contraseña</button>
+              <button type="button" className="secondary-button" disabled={guardando} onClick={restablecer} title="Restablecer contraseña"><KeyRound size={15} />Restablecer contraseña</button>
+            </div>
             {error && <div className="inline-alert error">{error}</div>}
             <footer><button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button><button className="primary-button" type="button" disabled={guardando} onClick={guardarCambios} title="Guardar cambios">{guardando ? "Guardando…" : "Guardar cambios"}</button></footer>
-          </>
+          </div>
         ) : coincidenciaCorreo ? (
           <>
             <p className="empty-note">Ya existe una cuenta con el correo <strong>{coincidenciaCorreo.correo}</strong> (rol {ETIQUETA_ROL[coincidenciaCorreo.rol]}) que no está vinculada a ningún empleado. Puedes vincularla a {empleado.nombre} en vez de crear una cuenta nueva.</p>
@@ -290,12 +308,25 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
             <footer><button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button><button className="primary-button" type="button" disabled={guardando} onClick={() => vincular(coincidenciaCorreo.usuarioId)} title="Vincular cuenta">{guardando ? "Vinculando…" : "Vincular cuenta"}</button></footer>
           </>
         ) : (
-          <form onSubmit={crear}>
+          <form className="access-stack" onSubmit={crear}>
             <div className="form-grid two-columns">
               <label className="span-two"><span>Correo electrónico *</span><input required type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} placeholder="empleado@icsi.com" /></label>
               <label className="span-two"><span>Rol</span>{selectorRol(rol, setRol)}</label>
             </div>
-            <label className="check-row"><input type="checkbox" checked={permitirCambio} onChange={(e) => setPermitirCambio(e.target.checked)} /><span>Permitir que el usuario cambie su contraseña</span></label>
+            <label className="option-card">
+              <div className="option-text">
+                <strong>Permitir que el usuario cambie su contraseña</strong>
+                <small>{permitirCambio ? "Verá un botón con una llave en la barra superior para cambiarla cuando quiera. Tú podrás seguir consultándola con tu código del autenticador." : "El usuario solo podrá entrar con la contraseña que le compartas. Si la olvida, tendrás que restablecérsela."}</small>
+              </div>
+              <input type="checkbox" role="switch" className="switch" checked={permitirCambio} onChange={(e) => setPermitirCambio(e.target.checked)} />
+            </label>
+            <label className="option-card">
+              <div className="option-text">
+                <strong>Pedir al usuario que cambie la contraseña al iniciar sesión</strong>
+                <small>Al entrar con la contraseña temporal, el sistema le exigirá elegir una nueva antes de continuar. Tú podrás seguir consultándola con tu código del autenticador.</small>
+              </div>
+              <input type="checkbox" role="switch" className="switch" checked={forzarCambio} onChange={(e) => setForzarCambio(e.target.checked)} />
+            </label>
             <p className="empty-note">Se creará la cuenta con una contraseña temporal generada automáticamente, que podrás copiar y compartir con {empleado.nombre}. Si este correo ya tenía una cuenta creada (p. ej. desde el panel de Supabase), en vez de fallar se vinculará a este empleado sin tocar su contraseña.</p>
             {error && <div className="inline-alert error">{error}</div>}
             <footer><button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button><button className="primary-button" type="submit" disabled={guardando} title="Crear acceso">{guardando ? "Creando…" : "Crear acceso"}</button></footer>
@@ -393,6 +424,7 @@ export function EmployeesView({ datos, actualizando, onSave, onToggleEstado, onD
               <label className="span-two"><span>Nombre completo *</span><input required value={formulario.nombre} onChange={(e) => actualizar("nombre", e.target.value)} /></label>
               <label><span>Número de empleado *</span><input required value={formulario.numeroEmpleado} onChange={(e) => actualizar("numeroEmpleado", e.target.value)} /></label>
               <label><span>Correo electrónico</span><input type="email" value={formulario.correo} onChange={(e) => actualizar("correo", e.target.value)} /></label>
+              <label><span>WhatsApp (10 dígitos)</span><input inputMode="numeric" maxLength={10} value={formulario.telefonoWhatsapp} onChange={(e) => actualizar("telefonoWhatsapp", e.target.value.replace(/\D/g, ""))} placeholder="9212226747" /></label>
               <label><span>CURP</span><input maxLength={18} value={formulario.curp} onChange={(e) => actualizar("curp", e.target.value.toUpperCase())} placeholder="18 caracteres" /></label>
               <label><span>NSS</span><input inputMode="numeric" maxLength={11} value={formulario.nss} onChange={(e) => actualizar("nss", e.target.value.replace(/\D/g, ""))} placeholder="11 dígitos" /></label>
               <label><span>Sede</span><Select value={formulario.sedeId} onChange={(valor) => actualizar("sedeId", valor)}><option value="">Seleccionar</option>{datos.sedes.map((item) => <option value={item.id} key={item.id}>{item.nombre}</option>)}</Select></label>

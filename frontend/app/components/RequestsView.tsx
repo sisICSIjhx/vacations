@@ -5,6 +5,8 @@ import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarPlus, Check, CircleX, Clock, Eye, Pencil, Plus, Search, Trash2, TriangleAlert, X } from "lucide-react";
 import { Select } from "./Select";
+import { separarUrgencia } from "../lib/urgente";
+import { siguienteDiaHabil } from "../lib/diaHabil";
 import type {
   DatosVacaciones,
   DecisionRevision,
@@ -45,8 +47,9 @@ function desdeSolicitud(solicitud: SolicitudAusencia): SolicitudFormulario {
     empleadoId: solicitud.empleadoId,
     fechaInicio: solicitud.fechaInicio,
     fechaFin: solicitud.fechaFin,
-    fechaReintegro: solicitud.fechaReintegro ?? "",
-    comentarios: solicitud.comentarios ?? "",
+    fechaReintegro: siguienteDiaHabil(solicitud.fechaFin),
+    comentarios: separarUrgencia(solicitud.comentarios).texto,
+    urgente: separarUrgencia(solicitud.comentarios).urgente,
   };
 }
 
@@ -230,14 +233,14 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
   const actualizar = (campo: keyof SolicitudFormulario, valor: string) => setFormulario((actual) => {
     if (!actual) return actual;
     const siguiente = { ...actual, [campo]: valor };
-    if ((campo === "fechaInicio" || campo === "fechaFin") && siguiente.fechaReintegro && siguiente.fechaReintegro <= siguiente.fechaFin) {
-      siguiente.fechaReintegro = "";
-    }
+    if (campo === "fechaFin") siguiente.fechaReintegro = siguienteDiaHabil(siguiente.fechaFin);
     return siguiente;
   });
+  const sinAnticipacion = !!formulario?.fechaInicio && !formulario.urgente
+    && differenceInCalendarDays(parseISO(formulario.fechaInicio), new Date()) < 15;
   const guardar = async (evento: React.FormEvent) => {
     evento.preventDefault();
-    if (!formulario || !onCreate) return;
+    if (!formulario || !onCreate || sinAnticipacion) return;
     const correcto = await onCreate(formulario);
     if (correcto) setFormulario(null);
   };
@@ -330,11 +333,17 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
               )}
               <label><span>Fecha de inicio *</span><input required type="date" value={formulario.fechaInicio} onChange={(e) => actualizar("fechaInicio", e.target.value)} /></label>
               <label><span>Fecha final *</span><input required type="date" min={formulario.fechaInicio} value={formulario.fechaFin} onChange={(e) => actualizar("fechaFin", e.target.value)} /></label>
-              <label><span>Fecha de reintegro</span><input type="date" min={formulario.fechaFin} value={formulario.fechaReintegro} onChange={(e) => actualizar("fechaReintegro", e.target.value)} /></label>
-              <label className="span-two"><span>Comentarios</span><textarea rows={3} value={formulario.comentarios} onChange={(e) => actualizar("comentarios", e.target.value)} placeholder="Información relevante para quienes revisan la solicitud" /></label>
+              <label><span>Fecha de reintegro *</span><input required readOnly type="date" value={formulario.fechaReintegro} title="Siguiente día hábil después de la fecha final" /></label>
+              <div className="field-slot" style={{ display: "flex", flexDirection: "column" }}><span style={{ display: "block", marginBottom: 6, color: "var(--muted)", fontSize: 12, fontWeight: 650 }}>Tipo de solicitud</span><button type="button" className="secondary-button" aria-pressed={!!formulario.urgente} title="Marca la solicitud como no planeada; el comentario será obligatorio" onClick={() => setFormulario((actual) => actual && { ...actual, urgente: !actual.urgente })} style={{ width: "100%", minHeight: 48, justifyContent: "center", ...(formulario.urgente ? { background: "#fdecea", borderColor: "#d93025", color: "#b3261e" } : {}) }}>{formulario.urgente ? "🚨 Urgente" : "Marcar como urgente"}</button></div>
+              <label className="span-two"><span>Comentarios{formulario.urgente ? " *" : ""}</span><textarea required={!!formulario.urgente} rows={3} value={formulario.comentarios} onChange={(e) => actualizar("comentarios", e.target.value)} placeholder={formulario.urgente ? "Explica el motivo urgente (obligatorio)" : "Información relevante para quienes revisan la solicitud"} /></label>
             </div>
+            {sinAnticipacion && (
+              <p role="alert" style={{ margin: "0 0 8px", padding: "10px 12px", borderRadius: 8, background: "#fdecea", border: "1px solid #d93025", color: "#b3261e", fontSize: 13 }}>
+                <strong>Las vacaciones deben solicitarse con al menos 15 días de anticipación.</strong> Vuelve a seleccionar las fechas o, si el motivo realmente es urgente, marca la solicitud como &quot;Urgente&quot; y explica el motivo en los comentarios.
+              </p>
+            )}
             <p className="empty-note">{editando ? "Esta solicitud sigue en RRHH; en cuanto avance de etapa ya no podrá editarse." : "La solicitud entra al flujo de aprobación: RRHH → Jefe inmediato → Mesa Directiva."}</p>
-            <footer><button className="secondary-button" type="button" onClick={() => setFormulario(null)} title="Cancelar">Cancelar</button><button className="primary-button" type="submit" disabled={actualizando} title={actualizando ? "Guardando…" : "Guardar solicitud"}>{actualizando ? "Guardando…" : "Guardar solicitud"}</button></footer>
+            <footer><button className="secondary-button" type="button" onClick={() => setFormulario(null)} title="Cancelar">Cancelar</button><button className="primary-button" type="submit" disabled={actualizando || sinAnticipacion} title={actualizando ? "Guardando…" : "Guardar solicitud"}>{actualizando ? "Guardando…" : "Guardar solicitud"}</button></footer>
           </form>
         </div>
       )}

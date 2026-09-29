@@ -47,16 +47,16 @@ export function listarAccesos(): Promise<AccesoUsuario[]> {
   return solicitar<AccesoUsuario[]>("/accesos");
 }
 
-export function crearAcceso(datos: { empleadoId: string; correo: string; rol: RolUsuario; permitirCambioContrasena?: boolean }): Promise<AccesoCreado> {
+export function crearAcceso(datos: { empleadoId: string; correo: string; rol: RolUsuario; permitirCambioContrasena?: boolean; forzarCambioContrasena?: boolean }): Promise<AccesoCreado> {
   return solicitar<AccesoCreado>("/accesos", { method: "POST", body: JSON.stringify(datos) });
 }
 
-export function actualizarAcceso(usuarioId: string, cambios: { rol?: RolUsuario; activo?: boolean; empleadoId?: string; permitirCambioContrasena?: boolean }): Promise<{ actualizado: boolean }> {
+export function actualizarAcceso(usuarioId: string, cambios: { rol?: RolUsuario; activo?: boolean; empleadoId?: string; permitirCambioContrasena?: boolean; forzarCambioContrasena?: boolean }): Promise<{ actualizado: boolean }> {
   return solicitar<{ actualizado: boolean }>(`/accesos/${usuarioId}`, { method: "PATCH", body: JSON.stringify(cambios) });
 }
 
-export function restablecerContrasena(usuarioId: string, permitirCambio?: boolean): Promise<{ contrasena: string }> {
-  return solicitar<{ contrasena: string }>(`/accesos/${usuarioId}/restablecer-contrasena`, { method: "POST", body: JSON.stringify({ permitirCambio }) });
+export function restablecerContrasena(usuarioId: string, permitirCambio?: boolean, forzarCambio?: boolean): Promise<{ contrasena: string }> {
+  return solicitar<{ contrasena: string }>(`/accesos/${usuarioId}/restablecer-contrasena`, { method: "POST", body: JSON.stringify({ permitirCambio, forzarCambio }) });
 }
 
 export function verContrasena(usuarioId: string): Promise<{ contrasena: string | null }> {

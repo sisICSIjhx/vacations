@@ -71,6 +71,7 @@ export interface Empleado {
   numeroEmpleado: string;
   nombre: string;
   correo?: string;
+  telefonoWhatsapp?: string;
   curp?: string;
   nss?: string;
   color: string;
@@ -136,6 +137,7 @@ export interface EmpleadoFormulario {
   numeroEmpleado: string;
   nombre: string;
   correo: string;
+  telefonoWhatsapp: string;
   curp: string;
   nss: string;
   color: string;
@@ -156,4 +158,5 @@ export interface SolicitudFormulario {
   fechaFin: string;
   fechaReintegro: string;
   comentarios: string;
+  urgente?: boolean;
 }

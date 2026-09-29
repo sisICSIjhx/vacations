@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { datosDemostracion, revisionesDemostracion } from "../data/demo";
 import { obtenerSupabase, supabaseConfigurado } from "../lib/supabase";
+import { comentarioConUrgencia } from "../lib/urgente";
+import { siguienteDiaHabil } from "../lib/diaHabil";
 import type {
   Catalogo,
   DatosVacaciones,
@@ -120,6 +122,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
         numeroEmpleado: String(fila.numero_empleado),
         nombre: String(fila.nombre_completo),
         correo: fila.correo_electronico ? String(fila.correo_electronico) : undefined,
+        telefonoWhatsapp: fila.telefono_whatsapp ? String(fila.telefono_whatsapp) : undefined,
         curp: fila.curp ? String(fila.curp) : undefined,
         nss: fila.nss ? String(fila.nss) : undefined,
         color: String(fila.color_calendario ?? "#2563EB"),
@@ -214,6 +217,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
           numeroEmpleado: formulario.numeroEmpleado,
           nombre: formulario.nombre,
           correo: formulario.correo || undefined,
+          telefonoWhatsapp: formulario.telefonoWhatsapp || undefined,
           curp: formulario.curp || undefined,
           nss: formulario.nss || undefined,
           color: formulario.color,
@@ -265,6 +269,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       numero_empleado: formulario.numeroEmpleado,
       nombre_completo: formulario.nombre,
       correo_electronico: formulario.correo || null,
+      telefono_whatsapp: formulario.telefonoWhatsapp || null,
       curp: formulario.curp ? formulario.curp.toUpperCase() : null,
       nss: formulario.nss || null,
       color_calendario: formulario.color,
@@ -334,6 +339,11 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
         setActualizando(false);
         return false;
       }
+      if (formulario.urgente && !formulario.comentarios.trim()) {
+        setError("Las solicitudes extraordinarias requieren un comentario que explique el motivo.");
+        setActualizando(false);
+        return false;
+      }
       if (dias > empleado.saldo.diasDisponibles) {
         setError(`Saldo insuficiente: la solicitud requiere ${dias} día(s) y el empleado tiene ${empleado.saldo.diasDisponibles} disponible(s).`);
         setActualizando(false);
@@ -349,9 +359,9 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
               colorEmpleado: empleado.color,
               fechaInicio: formulario.fechaInicio,
               fechaFin: formulario.fechaFin,
-              fechaReintegro: formulario.fechaReintegro || undefined,
+              fechaReintegro: siguienteDiaHabil(formulario.fechaFin),
               dias,
-              comentarios: formulario.comentarios || undefined,
+              comentarios: comentarioConUrgencia(formulario.comentarios, formulario.urgente) || undefined,
             } : item)
           : [...actual.solicitudes, {
               id: `sol-${Date.now()}`,
@@ -361,11 +371,11 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
               fechaSolicitud: new Date().toISOString(),
               fechaInicio: formulario.fechaInicio,
               fechaFin: formulario.fechaFin,
-              fechaReintegro: formulario.fechaReintegro || undefined,
+              fechaReintegro: siguienteDiaHabil(formulario.fechaFin),
               estado: "pendiente" as const,
               etapaAprobacion: "rrhh" as const,
               dias,
-              comentarios: formulario.comentarios || undefined,
+              comentarios: comentarioConUrgencia(formulario.comentarios, formulario.urgente) || undefined,
               origen: "empleado" as const,
             }],
       }));
@@ -378,8 +388,8 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       p_tipo_ausencia_id: tipoVacaciones?.id,
       p_fecha_inicio: formulario.fechaInicio,
       p_fecha_fin: formulario.fechaFin,
-      p_fecha_reintegro: formulario.fechaReintegro || null,
-      p_comentarios: formulario.comentarios || null,
+      p_fecha_reintegro: siguienteDiaHabil(formulario.fechaFin),
+      p_comentarios: comentarioConUrgencia(formulario.comentarios, formulario.urgente) || null,
       p_solicitud_id: formulario.id ?? null,
     });
     if (rpcError) setError(rpcError.message);
