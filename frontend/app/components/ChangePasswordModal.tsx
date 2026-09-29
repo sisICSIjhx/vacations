@@ -37,8 +37,14 @@ export function ChangePasswordModal({ onClose, onActualizada, obligatorio = fals
     setError(null);
     try {
       await cambiarMiContrasena(actual, nueva);
-      // Renueva la sesión para que se actualice la marca de cambio obligatorio.
-      await obtenerSupabase()?.auth.refreshSession().catch(() => null);
+      // Al cambiar la contraseña Supabase invalida las sesiones del usuario, así
+      // que renovar el token falla y la sesión guardada conserva la marca de
+      // cambio obligatorio. Se inicia una sesión nueva con la contraseña recién
+      // elegida para que el modal no reaparezca al recargar la página.
+      const supabase = obtenerSupabase();
+      const correo = (await supabase?.auth.getSession())?.data.session?.user.email;
+      const reingreso = supabase && correo ? await supabase.auth.signInWithPassword({ email: correo, password: nueva }).catch(() => null) : null;
+      if (!reingreso || reingreso.error) await supabase?.auth.refreshSession().catch(() => null);
       setListo(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No fue posible cambiar la contraseña.");

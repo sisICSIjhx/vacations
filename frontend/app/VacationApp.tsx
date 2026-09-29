@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import {
   Bell, Calendar, ChartPie, ChevronDown, ChevronLeft, ChevronRight,
   ClipboardList, KeyRound, LogOut, Menu, Moon, Plus, Settings2, ShieldCheck,
@@ -220,6 +220,19 @@ function RequestModal({ datos, perfil, actualizando, onClose, onCreate }: { dato
   );
 }
 
+// La sesión guardada en el navegador conserva el app_metadata del último inicio
+// de sesión (p. ej. la marca de cambio obligatorio de contraseña). Se consulta
+// el usuario al servidor para usar datos al día y detectar sesiones revocadas.
+async function sesionVigente(supabase: SupabaseClient, sesion: Session): Promise<Session | null> {
+  const { data, error } = await supabase.auth.getUser();
+  if (data.user) return { ...sesion, user: data.user };
+  if (error && (error.status === 401 || error.status === 403)) {
+    await supabase.auth.signOut({ scope: "local" });
+    return null;
+  }
+  return sesion;
+}
+
 export default function VacationApp() {
   const [sesion, setSesion] = useState<Session | null>(null);
   const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
@@ -254,14 +267,18 @@ export default function VacationApp() {
     const supabase = obtenerSupabase();
     if (!supabase) return;
     void supabase.auth.getSession().then(async ({ data }) => {
-      const perfil = data.session ? await obtenerPerfilAcceso(data.session.user.id) : null;
+      const guardada = data.session ? await sesionVigente(supabase, data.session) : null;
+      const perfil = guardada ? await obtenerPerfilAcceso(guardada.user.id) : null;
       const valida = puedeAccederPanel(perfil);
-      setSesion(valida ? data.session : null);
+      setSesion(valida ? guardada : null);
       setPerfilSesion(valida ? perfil : null);
-      if (data.session && !valida) await supabase.auth.signOut();
+      if (guardada && !valida) await supabase.auth.signOut();
       setVerificandoSesion(false);
     });
-    const { data } = supabase.auth.onAuthStateChange((_evento, nuevaSesion) => {
+    const { data } = supabase.auth.onAuthStateChange((evento, nuevaSesion) => {
+      // La sesión inicial la resuelve getSession con el usuario leído del
+      // servidor; aquí llegaría la copia del navegador, con datos viejos.
+      if (evento === "INITIAL_SESSION") return;
       if (!nuevaSesion) {
         setSesion(null);
         setPerfilSesion(null);
