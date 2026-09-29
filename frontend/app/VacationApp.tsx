@@ -223,6 +223,9 @@ function RequestModal({ datos, perfil, actualizando, onClose, onCreate }: { dato
 export default function VacationApp() {
   const [sesion, setSesion] = useState<Session | null>(null);
   const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
+  // La marca de cambio obligatorio viaja en el token; si al renovarlo sigue
+  // llegando la anterior, esto evita que el modal se quede abierto.
+  const [contrasenaActualizada, setContrasenaActualizada] = useState(false);
   const [perfilSesion, setPerfilSesion] = useState<PerfilUsuario | null>(null);
   const [rolDemo, setRolDemo] = useState<keyof typeof PERFILES_DEMOSTRACION>("administrador");
   const [demoAutorizada, setDemoAutorizada] = useState(false);
@@ -262,6 +265,7 @@ export default function VacationApp() {
       if (!nuevaSesion) {
         setSesion(null);
         setPerfilSesion(null);
+        setContrasenaActualizada(false);
         return;
       }
       void obtenerPerfilAcceso(nuevaSesion.user.id).then(async (perfil) => {
@@ -275,6 +279,7 @@ export default function VacationApp() {
   }, []);
 
   const autorizado = supabaseConfigurado ? Boolean(sesion) : demoAutorizada;
+  const debeCambiarContrasena = sesion?.user.app_metadata?.debe_cambiar_contrasena === true && !contrasenaActualizada;
   const perfil = supabaseConfigurado ? perfilSesion : PERFILES_DEMOSTRACION[rolDemo];
   const sinEmpleadoVinculado = perfil?.rol === "empleado" && !perfil.empleadoId;
   // Personal y Catálogos: alta y edición para administrador y RRHH. Por ahora
@@ -361,7 +366,7 @@ export default function VacationApp() {
             <button className="icon-button" type="button" onClick={cerrarSesion} aria-label="Cerrar sesión" title="Cerrar sesión"><LogOut size={18} /></button>
           </div>
         </header>
-        {(cambiandoContrasena || sesion?.user.app_metadata?.debe_cambiar_contrasena === true) && <ChangePasswordModal obligatorio={sesion?.user.app_metadata?.debe_cambiar_contrasena === true} onClose={() => setCambiandoContrasena(false)} />}
+        {(cambiandoContrasena || debeCambiarContrasena) && <ChangePasswordModal obligatorio={debeCambiarContrasena} onActualizada={() => setContrasenaActualizada(true)} onClose={() => setCambiandoContrasena(false)} />}
         {sistema.modoDemostracion && <div className="demo-banner"><span><ShieldCheck size={15} /><strong>Demostración</strong> Los cambios son temporales hasta conectar Supabase.</span></div>}
         {sistema.error && <div className="global-error">{sistema.error}</div>}
         <main className="app-main">

@@ -575,6 +575,10 @@ p { color: var(--muted); line-height: 1.55; }
 .form-title-with-icon { display: flex; gap: 11px; align-items: center; }
 .form-title-with-icon h2 { margin: 0; }
 .form-section-title { grid-column: 1 / -1; margin: 5px 0 -4px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink); text-transform: uppercase; letter-spacing: .08em; }
+.password-input { position: relative; }
+.password-input input { padding-right: 44px; }
+.password-input button { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--muted); }
+.password-input button:hover, .password-input button:focus-visible { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
 .color-input { display: flex; gap: 7px; }
 .color-input input[type="color"] { width: 43px; min-width: 43px; padding: 3px; }
 
