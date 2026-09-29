@@ -330,6 +330,14 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       return false;
     }
     const dias = differenceInCalendarDays(parseISO(formulario.fechaFin), parseISO(formulario.fechaInicio)) + 1;
+    // El reintegro lo elige quien captura (por defecto, el siguiente día hábil)
+    // y puede coincidir con la fecha final, pero no ser anterior.
+    const fechaReintegro = formulario.fechaReintegro || siguienteDiaHabil(formulario.fechaFin);
+    if (fechaReintegro < formulario.fechaFin) {
+      setError("La fecha de reintegro no puede ser anterior a la fecha final.");
+      setActualizando(false);
+      return false;
+    }
     const tipoVacaciones = datos.tiposAusencia.find((item) => item.codigo === "VACACIONES") ?? datos.tiposAusencia[0];
     const supabase = obtenerSupabase();
     if (!supabase) {
@@ -359,7 +367,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
               colorEmpleado: empleado.color,
               fechaInicio: formulario.fechaInicio,
               fechaFin: formulario.fechaFin,
-              fechaReintegro: siguienteDiaHabil(formulario.fechaFin),
+              fechaReintegro,
               dias,
               comentarios: comentarioConUrgencia(formulario.comentarios, formulario.urgente) || undefined,
             } : item)
@@ -371,7 +379,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
               fechaSolicitud: new Date().toISOString(),
               fechaInicio: formulario.fechaInicio,
               fechaFin: formulario.fechaFin,
-              fechaReintegro: siguienteDiaHabil(formulario.fechaFin),
+              fechaReintegro,
               estado: "pendiente" as const,
               etapaAprobacion: "rrhh" as const,
               dias,
@@ -388,7 +396,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       p_tipo_ausencia_id: tipoVacaciones?.id,
       p_fecha_inicio: formulario.fechaInicio,
       p_fecha_fin: formulario.fechaFin,
-      p_fecha_reintegro: siguienteDiaHabil(formulario.fechaFin),
+      p_fecha_reintegro: fechaReintegro,
       p_comentarios: comentarioConUrgencia(formulario.comentarios, formulario.urgente) || null,
       p_solicitud_id: formulario.id ?? null,
     });

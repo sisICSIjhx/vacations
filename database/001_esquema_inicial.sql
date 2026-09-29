@@ -386,7 +386,7 @@ create table if not exists vacaciones.solicitudes_ausencia (
   eliminado_por uuid,
   motivo_eliminacion text,
   check (fecha_fin >= fecha_inicio),
-  check (fecha_reintegro is null or fecha_reintegro > fecha_fin),
+  check (fecha_reintegro is null or fecha_reintegro >= fecha_fin),
   check (fecha_inicio <> fecha_fin or fraccion_primer_dia = fraccion_ultimo_dia),
   check (numero_fila_origen is null or numero_fila_origen > 0)
 );

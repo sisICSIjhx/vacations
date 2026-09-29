@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import {
   Bell, Calendar, ChartPie, ChevronDown, ChevronLeft, ChevronRight,
   ClipboardList, KeyRound, LogOut, Menu, Moon, Plus, Settings2, ShieldCheck,
@@ -209,7 +209,7 @@ function RequestModal({ datos, perfil, actualizando, onClose, onCreate }: { dato
                   )}
                 </>
               )}
-              <label><span>Inicio *</span><input required type="date" value={formulario.fechaInicio} onChange={(e) => actualizar("fechaInicio", e.target.value)} /></label><label><span>Fin *</span><input required type="date" min={formulario.fechaInicio} value={formulario.fechaFin} onChange={(e) => actualizar("fechaFin", e.target.value)} /></label><label><span>Reintegro *</span><input required readOnly type="date" value={formulario.fechaReintegro} title="Siguiente día hábil después de la fecha final" /></label><div className="field-slot" style={{ display: "flex", flexDirection: "column" }}><span style={{ display: "block", marginBottom: 6, color: "var(--muted)", fontSize: 12, fontWeight: 650 }}>Tipo de solicitud</span><button type="button" className="secondary-button" aria-pressed={!!formulario.urgente} title="Marca la solicitud como no planeada; el comentario será obligatorio" onClick={() => setFormulario((actual) => ({ ...actual, urgente: !actual.urgente }))} style={{ width: "100%", minHeight: 48, justifyContent: "center", ...(formulario.urgente ? { background: "#fdecea", borderColor: "#d93025", color: "#b3261e" } : {}) }}>{formulario.urgente ? "🚨 Urgente" : "Marcar como urgente"}</button></div><label className="span-two"><span>Comentarios{formulario.urgente ? " *" : ""}</span><textarea required={!!formulario.urgente} rows={3} value={formulario.comentarios} onChange={(e) => actualizar("comentarios", e.target.value)} placeholder={formulario.urgente ? "Explica el motivo urgente (obligatorio)" : undefined} /></label>
+              <label><span>Inicio *</span><input required type="date" value={formulario.fechaInicio} onChange={(e) => actualizar("fechaInicio", e.target.value)} /></label><label><span>Fin *</span><input required type="date" min={formulario.fechaInicio} value={formulario.fechaFin} onChange={(e) => actualizar("fechaFin", e.target.value)} /></label><label><span>Reintegro *</span><input required type="date" min={formulario.fechaFin} value={formulario.fechaReintegro} onChange={(e) => actualizar("fechaReintegro", e.target.value)} title="Por defecto, el siguiente día hábil; puede ser el mismo día de la fecha final" /></label><div className="field-slot" style={{ display: "flex", flexDirection: "column" }}><span style={{ display: "block", marginBottom: 6, color: "var(--muted)", fontSize: 12, fontWeight: 650 }}>Tipo de solicitud</span><button type="button" className="secondary-button" aria-pressed={!!formulario.urgente} title="Marca la solicitud como no planeada; el comentario será obligatorio" onClick={() => setFormulario((actual) => ({ ...actual, urgente: !actual.urgente }))} style={{ width: "100%", minHeight: 48, justifyContent: "center", ...(formulario.urgente ? { background: "#fdecea", borderColor: "#d93025", color: "#b3261e" } : {}) }}>{formulario.urgente ? "🚨 Urgente" : "Marcar como urgente"}</button></div><label className="span-two"><span>Comentarios{formulario.urgente ? " *" : ""}</span><textarea required={!!formulario.urgente} rows={3} value={formulario.comentarios} onChange={(e) => actualizar("comentarios", e.target.value)} placeholder={formulario.urgente ? "Explica el motivo urgente (obligatorio)" : undefined} /></label>
             </div>
             <p className="empty-note">La solicitud entra al flujo de aprobación: RRHH → Jefe inmediato → Mesa Directiva.</p>
           </>
@@ -226,11 +226,12 @@ function RequestModal({ datos, perfil, actualizando, onClose, onCreate }: { dato
 async function sesionVigente(supabase: SupabaseClient, sesion: Session): Promise<Session | null> {
   const { data, error } = await supabase.auth.getUser();
   if (data.user) return { ...sesion, user: data.user };
-  if (error && (error.status === 401 || error.status === 403)) {
-    await supabase.auth.signOut({ scope: "local" });
-    return null;
-  }
-  return sesion;
+  // Solo un fallo de red conserva la sesión guardada. Cualquier otro error
+  // (p. ej. «Auth session missing», que llega con estado 400 cuando la sesión
+  // se cerró al cambiar la contraseña) obliga a iniciar sesión de nuevo.
+  if (error && isAuthRetryableFetchError(error)) return sesion;
+  await supabase.auth.signOut({ scope: "local" });
+  return null;
 }
 
 export default function VacationApp() {

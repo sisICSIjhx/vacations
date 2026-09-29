@@ -282,13 +282,13 @@ export class ImportacionesService {
             );
             continue;
           }
-          if (periodo.reintegro && periodo.reintegro <= periodo.fin) {
+          if (periodo.reintegro && periodo.reintegro < periodo.fin) {
             filaValida = false;
             incidencias.push(
               this.incidencia(
                 numeroFila,
                 'REINTEGRO_INVALIDO',
-                'La fecha de reintegro debe ser posterior al final de las vacaciones.',
+                'La fecha de reintegro no puede ser anterior al final de las vacaciones.',
                 fila,
               ),
             );
