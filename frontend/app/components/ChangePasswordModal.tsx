@@ -76,7 +76,6 @@ export function ChangePasswordModal({ onClose, onActualizada, obligatorio = fals
               <CampoContrasena etiqueta="Nueva contraseña * (mínimo 8 caracteres)" autoComplete="new-password" minLength={8} value={nueva} onChange={setNueva} />
               <CampoContrasena etiqueta="Confirmar nueva contraseña *" autoComplete="new-password" minLength={8} value={confirmacion} onChange={setConfirmacion} />
             </div>
-            <p className="empty-note">Por política interna, la administración puede consultar las contraseñas de la plataforma. No reutilices una contraseña personal.</p>
             {error && <div className="inline-alert error">{error}</div>}
             <footer>{!obligatorio && <button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button>}<button className="primary-button" type="submit" disabled={guardando} title="Guardar">{guardando ? "Guardando…" : "Cambiar contraseña"}</button></footer>
           </>
