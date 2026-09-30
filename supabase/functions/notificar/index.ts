@@ -106,6 +106,18 @@ function armarTexto(n: NotificacionPayload, appUrl: string | null): string {
         '_Consulta el sistema para ver el detalle._',
       ]
       break
+    case 'recordatorio': {
+      // Generado por vacaciones.enviar_recordatorios_pendientes() (010, pg_cron)
+      const espera = Number(c['Días en espera'])
+      cuerpo = [
+        '⏰ *RECORDATORIO DE APROBACIÓN*',
+        ...datos,
+        SALTO,
+        Number.isFinite(espera) ? `⌛ *En espera:* ${espera} ${espera === 1 ? 'día' : 'días'} sin respuesta` : '',
+        `⏳ *Acción requerida:* ${c['Pendiente de'] ? `*${c['Pendiente de']}*` : 'la etapa correspondiente'} debe aprobar o rechazar.`,
+      ]
+      break
+    }
     default:
       // Tipo desconocido: titulo + campos tal cual llegaron
       cuerpo = [`*${n.titulo}*`, (n.mensaje ?? '').split(' | ').filter((p) => !p.startsWith('Tel jefe:')).join('\n')]

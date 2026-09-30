@@ -118,6 +118,8 @@ function DecisionModal({ solicitud, etapa, decision, onClose, onConfirm, actuali
   const [comentario, setComentario] = useState("");
   const diasAnticipacion = differenceInCalendarDays(parseISO(solicitud.fechaInicio), new Date());
   const anticipacionInsuficiente = etapa === "rrhh" && decision === "aprobado" && diasAnticipacion < ANTICIPACION_MINIMA_DIAS;
+  // El motivo del rechazo se envía al empleado por correo; la base de datos también lo exige.
+  const faltaMotivo = decision === "rechazado" && comentario.trim() === "";
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) onClose(); }}>
       <form className="form-modal" onSubmit={(evento) => { evento.preventDefault(); void onConfirm(comentario); }}>
@@ -137,11 +139,11 @@ function DecisionModal({ solicitud, etapa, decision, onClose, onConfirm, actuali
           </div>
         )}
         <div className="form-grid">
-          <label><span>Comentario {decision === "rechazado" ? "(motivo del rechazo)" : "(opcional)"}</span><textarea rows={3} value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder={decision === "aprobado" ? "Notas para la siguiente etapa" : "Explica por qué se rechaza"} /></label>
+          <label><span>{decision === "rechazado" ? "Motivo del rechazo (obligatorio, se enviará al empleado por correo)" : "Comentario (opcional)"}</span><textarea rows={3} required={decision === "rechazado"} value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder={decision === "aprobado" ? "Notas para la siguiente etapa" : "Explica por qué se rechaza"} /></label>
         </div>
         <footer>
           <button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button>
-          <button className={decision === "aprobado" ? "primary-button" : "primary-button danger-button"} type="submit" disabled={actualizando} title={actualizando ? "Guardando…" : decision === "aprobado" ? "Confirmar aprobación" : "Confirmar rechazo"}>{actualizando ? "Guardando…" : decision === "aprobado" ? "Confirmar aprobación" : "Confirmar rechazo"}</button>
+          <button className={decision === "aprobado" ? "primary-button" : "primary-button danger-button"} type="submit" disabled={actualizando || faltaMotivo} title={actualizando ? "Guardando…" : decision === "aprobado" ? "Confirmar aprobación" : "Confirmar rechazo"}>{actualizando ? "Guardando…" : decision === "aprobado" ? "Confirmar aprobación" : "Confirmar rechazo"}</button>
         </footer>
       </form>
     </div>
