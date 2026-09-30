@@ -33,6 +33,12 @@ interface RequestsViewProps {
 
 const ANTICIPACION_MINIMA_DIAS = 15;
 
+const estiloUrgente = { background: "#fdecea", border: "1px solid #f3b8b3", color: "#b3261e", fontWeight: 700 } as const;
+
+function EtiquetaUrgente() {
+  return <span className="status-pill" style={{ ...estiloUrgente, marginLeft: 6 }} title="Solicitud extraordinaria: puede aprobarse aunque no cumpla la anticipación mínima">🚨 Urgente</span>;
+}
+
 const NOMBRE_ETAPA: Record<EtapaAccionable, string> = {
   rrhh: "RRHH",
   jefe_inmediato: "Jefe inmediato",
@@ -117,7 +123,10 @@ function DecisionModal({ solicitud, etapa, decision, onClose, onConfirm, actuali
 }) {
   const [comentario, setComentario] = useState("");
   const diasAnticipacion = differenceInCalendarDays(parseISO(solicitud.fechaInicio), new Date());
+  const { urgente, texto: motivoEmpleado } = separarUrgencia(solicitud.comentarios);
   const anticipacionInsuficiente = etapa === "rrhh" && decision === "aprobado" && diasAnticipacion < ANTICIPACION_MINIMA_DIAS;
+  // Sin la marca de urgente, la base de datos rechaza la aprobación: se bloquea el botón.
+  const bloqueadaPorAnticipacion = anticipacionInsuficiente && !urgente;
   // El motivo del rechazo se envía al empleado por correo; la base de datos también lo exige.
   const faltaMotivo = decision === "rechazado" && comentario.trim() === "";
   return (
@@ -133,9 +142,15 @@ function DecisionModal({ solicitud, etapa, decision, onClose, onConfirm, actuali
         <p className="empty-note">
           {solicitud.nombreEmpleado} · {format(parseISO(solicitud.fechaInicio), "d MMM", { locale: es })} — {format(parseISO(solicitud.fechaFin), "d MMM yyyy", { locale: es })} · {solicitud.dias} día(s)
         </p>
-        {anticipacionInsuficiente && (
+        {urgente && (
+          <div className="inline-alert" style={{ ...estiloUrgente, fontWeight: 400 }}>
+            <strong>🚨 Solicitud urgente.</strong>{anticipacionInsuficiente && <> Se pidió con {Math.max(diasAnticipacion, 0)} día(s) de anticipación (menos de los {ANTICIPACION_MINIMA_DIAS} requeridos), pero por estar marcada como urgente sí puede aprobarse.</>}
+            {motivoEmpleado && <><br /><strong>Motivo del empleado:</strong> {motivoEmpleado}</>}
+          </div>
+        )}
+        {bloqueadaPorAnticipacion && (
           <div className="inline-alert error">
-            <TriangleAlert size={15} /> No cumple la anticipación mínima de {ANTICIPACION_MINIMA_DIAS} días (faltan {ANTICIPACION_MINIMA_DIAS - diasAnticipacion} día(s)). RRHH no podrá aprobarla hasta cumplirla; considera rechazarla o pedir que se reprograme.
+            <TriangleAlert size={15} /> <strong>No se puede aprobar:</strong> las vacaciones deben pedirse con al menos {ANTICIPACION_MINIMA_DIAS} días de anticipación y esta solicitud se hizo con {Math.max(diasAnticipacion, 0)} día(s). Recházala indicando que la reprograme, o pide al empleado que la marque como urgente y explique el motivo.
           </div>
         )}
         <div className="form-grid">
@@ -143,7 +158,7 @@ function DecisionModal({ solicitud, etapa, decision, onClose, onConfirm, actuali
         </div>
         <footer>
           <button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button>
-          <button className={decision === "aprobado" ? "primary-button" : "primary-button danger-button"} type="submit" disabled={actualizando || faltaMotivo} title={actualizando ? "Guardando…" : decision === "aprobado" ? "Confirmar aprobación" : "Confirmar rechazo"}>{actualizando ? "Guardando…" : decision === "aprobado" ? "Confirmar aprobación" : "Confirmar rechazo"}</button>
+          <button className={decision === "aprobado" ? "primary-button" : "primary-button danger-button"} type="submit" disabled={actualizando || faltaMotivo || bloqueadaPorAnticipacion} title={actualizando ? "Guardando…" : decision === "aprobado" ? "Confirmar aprobación" : "Confirmar rechazo"}>{actualizando ? "Guardando…" : decision === "aprobado" ? "Confirmar aprobación" : "Confirmar rechazo"}</button>
         </footer>
       </form>
     </div>
@@ -182,7 +197,7 @@ function DetailDrawer({ solicitud, empleado, onClose, onObtenerRevisiones }: {
           <label><span>Días disponibles</span><strong>{empleado?.saldo.diasDisponibles ?? 0}</strong></label>
           <label><span>Estado actual</span><span className={`status-pill ${solicitud.estado}`} style={{ width: "fit-content" }}>{textoEstado(solicitud)}</span></label>
         </div>
-        {solicitud.comentarios && <div className="form-grid"><label><span>Comentario del empleado</span><p className="empty-note" style={{ textAlign: "left" }}>{solicitud.comentarios}</p></label></div>}
+        {solicitud.comentarios && <div className="form-grid"><label><span>{separarUrgencia(solicitud.comentarios).urgente ? <>Motivo de la urgencia <EtiquetaUrgente /></> : "Comentario del empleado"}</span><p className="empty-note" style={{ textAlign: "left" }}>{separarUrgencia(solicitud.comentarios).texto || "—"}</p></label></div>}
 
         <div className="form-section-title"><Clock size={16} /><span>Historial de aprobaciones</span></div>
         {revisiones === null ? (
@@ -280,6 +295,7 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
             <tbody>
               {solicitudes.map((solicitud) => {
                 const empleado = empleadoDe(solicitud);
+                const { urgente, texto: comentarioVisible } = separarUrgencia(solicitud.comentarios);
                 const etapaAccionable = etapaRevisable(perfil, solicitud, datos.empleados);
                 const puedeEditar = Boolean(onCreate) && solicitud.etapaAprobacion === "rrhh" && ["planeada", "pendiente"].includes(solicitud.estado)
                   && (perfil?.rol === "administrador" || (perfil?.rol === "empleado" && solicitud.empleadoId === perfil.empleadoId));
@@ -290,8 +306,8 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
                     <td><span className="period-chip">{format(parseISO(solicitud.fechaInicio), "d MMM", { locale: es })}<span className="arrow">→</span>{format(parseISO(solicitud.fechaFin), "d MMM yyyy", { locale: es })}</span></td>
                     <td><span className="count-badge" title={`${solicitud.dias} día(s) solicitados`}>{solicitud.dias}</span></td>
                     <td><span className="count-chip">{empleado?.saldo.diasTomados ?? 0} días</span></td>
-                    <td><span className={`status-pill ${solicitud.estado}`}>{textoEstado(solicitud)}</span></td>
-                    <td><span className="table-secondary truncate" style={{ maxWidth: 260, display: "inline-block" }}>{solicitud.comentarios || "—"}</span></td>
+                    <td><span className={`status-pill ${solicitud.estado}`}>{textoEstado(solicitud)}</span>{urgente && <EtiquetaUrgente />}</td>
+                    <td><span className="table-secondary truncate" style={{ maxWidth: 260, display: "inline-block" }} title={comentarioVisible || undefined}>{comentarioVisible || "—"}</span></td>
                     <td>
                       <div className="row-actions">
                         {etapaAccionable && <>

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { datosDemostracion, revisionesDemostracion } from "../data/demo";
 import { obtenerSupabase, supabaseConfigurado } from "../lib/supabase";
-import { comentarioConUrgencia } from "../lib/urgente";
+import { comentarioConUrgencia, separarUrgencia } from "../lib/urgente";
 import { siguienteDiaHabil } from "../lib/diaHabil";
 import type {
   Catalogo,
@@ -432,7 +432,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     if (!supabase) {
       if (etapa === "rrhh" && decision === "aprobado") {
         const diasAnticipacion = differenceInCalendarDays(parseISO(solicitud.fechaInicio), new Date());
-        if (diasAnticipacion < ANTICIPACION_MINIMA_DIAS) {
+        if (diasAnticipacion < ANTICIPACION_MINIMA_DIAS && !separarUrgencia(solicitud.comentarios).urgente) {
           setError(`La solicitud no cumple la anticipación mínima de ${ANTICIPACION_MINIMA_DIAS} días (faltan ${ANTICIPACION_MINIMA_DIAS - diasAnticipacion} día(s)).`);
           setActualizando(false);
           return false;
