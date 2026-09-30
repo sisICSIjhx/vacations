@@ -159,4 +159,10 @@ export interface SolicitudFormulario {
   fechaReintegro: string;
   comentarios: string;
   urgente?: boolean;
+  // Solo administrador: captura de una solicitud con fecha pasada o sin la
+  // anticipación mínima (RPC registrar_solicitud_extemporanea).
+  extemporanea?: boolean;
+  yaAprobada?: boolean;
+  descontarSaldo?: boolean;
+  fechaSolicitud?: string;
 }

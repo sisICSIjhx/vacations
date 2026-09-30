@@ -352,7 +352,10 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
         setActualizando(false);
         return false;
       }
-      if (dias > empleado.saldo.diasDisponibles) {
+      const extemporanea = Boolean(formulario.extemporanea && !formulario.id);
+      const descuenta = !extemporanea || formulario.descontarSaldo !== false;
+      const aprobadaDirecto = extemporanea && formulario.yaAprobada !== false;
+      if (descuenta && dias > empleado.saldo.diasDisponibles) {
         setError(`Saldo insuficiente: la solicitud requiere ${dias} día(s) y el empleado tiene ${empleado.saldo.diasDisponibles} disponible(s).`);
         setActualizando(false);
         return false;
@@ -376,19 +379,43 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
               empleadoId: empleado.id,
               nombreEmpleado: empleado.nombre,
               colorEmpleado: empleado.color,
-              fechaSolicitud: new Date().toISOString(),
+              fechaSolicitud: extemporanea && formulario.fechaSolicitud ? `${formulario.fechaSolicitud}T12:00:00.000Z` : new Date().toISOString(),
               fechaInicio: formulario.fechaInicio,
               fechaFin: formulario.fechaFin,
               fechaReintegro,
-              estado: "pendiente" as const,
-              etapaAprobacion: "rrhh" as const,
+              estado: aprobadaDirecto ? "aprobada" as const : "pendiente" as const,
+              etapaAprobacion: aprobadaDirecto ? "aprobada" as const : "rrhh" as const,
               dias,
               comentarios: comentarioConUrgencia(formulario.comentarios, formulario.urgente) || undefined,
               origen: "empleado" as const,
             }],
+        empleados: aprobadaDirecto && descuenta
+          ? actual.empleados.map((item) => item.id === empleado.id ? {
+              ...item,
+              saldo: { ...item.saldo, diasDisponibles: item.saldo.diasDisponibles - dias, diasTomados: item.saldo.diasTomados + dias },
+            } : item)
+          : actual.empleados,
       }));
       setActualizando(false);
       return true;
+    }
+
+    if (formulario.extemporanea && !formulario.id) {
+      const { error: rpcError } = await supabase.schema("vacaciones").rpc("registrar_solicitud_extemporanea", {
+        p_empleado_id: empleado.id,
+        p_tipo_ausencia_id: tipoVacaciones?.id,
+        p_fecha_inicio: formulario.fechaInicio,
+        p_fecha_fin: formulario.fechaFin,
+        p_fecha_reintegro: fechaReintegro,
+        p_comentarios: comentarioConUrgencia(formulario.comentarios, formulario.urgente) || null,
+        p_solicitado_en: formulario.fechaSolicitud || null,
+        p_ya_aprobada: formulario.yaAprobada !== false,
+        p_descontar_saldo: formulario.descontarSaldo !== false,
+      });
+      if (rpcError) setError(rpcError.message);
+      else await cargarDesdeSupabase();
+      setActualizando(false);
+      return !rpcError;
     }
 
     const { error: rpcError } = await supabase.schema("vacaciones").rpc("guardar_solicitud_vacaciones", {

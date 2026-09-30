@@ -253,12 +253,20 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
     if (campo === "fechaFin") siguiente.fechaReintegro = siguienteDiaHabil(siguiente.fechaFin);
     return siguiente;
   });
-  const sinAnticipacion = !!formulario?.fechaInicio && !formulario.urgente
-    && differenceInCalendarDays(parseISO(formulario.fechaInicio), new Date()) < 15;
+  const fueraDePlazo = !!formulario?.fechaInicio
+    && differenceInCalendarDays(parseISO(formulario.fechaInicio), new Date()) < ANTICIPACION_MINIMA_DIAS;
+  // El administrador puede capturar solicitudes pasadas o fuera de plazo
+  // (p. ej. autorizadas en papel) en lugar de quedar bloqueado.
+  const registroExtemporaneo = perfil?.rol === "administrador" && !editando && fueraDePlazo;
+  const sinAnticipacion = fueraDePlazo && !formulario?.urgente && !registroExtemporaneo;
+  const yaAprobada = formulario?.yaAprobada ?? true;
+  const descontarSaldo = formulario?.descontarSaldo ?? true;
   const guardar = async (evento: React.FormEvent) => {
     evento.preventDefault();
     if (!formulario || !onCreate || sinAnticipacion) return;
-    const correcto = await onCreate(formulario);
+    const correcto = await onCreate(registroExtemporaneo
+      ? { ...formulario, extemporanea: true, yaAprobada, descontarSaldo }
+      : { ...formulario, extemporanea: false });
     if (correcto) setFormulario(null);
   };
   const eliminar = (solicitud: SolicitudAusencia) => {
@@ -355,12 +363,23 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
               <div className="field-slot" style={{ display: "flex", flexDirection: "column" }}><span style={{ display: "block", marginBottom: 6, color: "var(--muted)", fontSize: 12, fontWeight: 650 }}>Tipo de solicitud</span><button type="button" className="secondary-button" aria-pressed={!!formulario.urgente} title="Marca la solicitud como no planeada; el comentario será obligatorio" onClick={() => setFormulario((actual) => actual && { ...actual, urgente: !actual.urgente })} style={{ width: "100%", minHeight: 48, justifyContent: "center", ...(formulario.urgente ? { background: "#fdecea", borderColor: "#d93025", color: "#b3261e" } : {}) }}>{formulario.urgente ? "🚨 Urgente" : "Marcar como urgente"}</button></div>
               <label className="span-two"><span>Comentarios{formulario.urgente ? " *" : ""}</span><textarea required={!!formulario.urgente} rows={3} value={formulario.comentarios} onChange={(e) => actualizar("comentarios", e.target.value)} placeholder={formulario.urgente ? "Explica el motivo urgente (obligatorio)" : "Información relevante para quienes revisan la solicitud"} /></label>
             </div>
+            {registroExtemporaneo && (
+              <div className="span-two" style={{ margin: "0 0 10px", padding: "12px 14px", borderRadius: 9, background: "color-mix(in srgb, #f59e0b 12%, transparent)", border: "1px solid color-mix(in srgb, #f59e0b 45%, transparent)", display: "grid", gap: 10, fontSize: 13 }}>
+                <span><strong>Registro extemporáneo</strong> · la fecha de inicio ya pasó o faltan menos de {ANTICIPACION_MINIMA_DIAS} días. Como administrador puedes capturarla indicando cómo se trata:</span>
+                <label style={{ display: "grid", gap: 4, maxWidth: 260 }}><span style={{ color: "var(--muted)", fontSize: 12, fontWeight: 650 }}>Fecha en que se solicitó</span><input type="date" max={new Date().toISOString().slice(0, 10)} value={formulario.fechaSolicitud ?? ""} onChange={(e) => setFormulario((actual) => actual && { ...actual, fechaSolicitud: e.target.value })} title="Si la dejas vacía se usa la fecha de hoy" /></label>
+                <div role="radiogroup" aria-label="Autorización" style={{ display: "grid", gap: 6 }}>
+                  <label style={{ display: "flex", gap: 8, alignItems: "flex-start", cursor: "pointer" }}><input type="radio" name="autorizacion" checked={yaAprobada} onChange={() => setFormulario((actual) => actual && { ...actual, yaAprobada: true })} /><span><strong>Ya fue autorizada</strong>: se registra como aprobada, sin pasar por las etapas y sin enviar WhatsApp ni correos.</span></label>
+                  <label style={{ display: "flex", gap: 8, alignItems: "flex-start", cursor: "pointer" }}><input type="radio" name="autorizacion" checked={!yaAprobada} onChange={() => setFormulario((actual) => actual && { ...actual, yaAprobada: false })} /><span><strong>Enviar a revisión</strong>: pasa por RRHH → Jefe inmediato → Mesa Directiva (con sus avisos); RRHH podrá aprobarla aunque no cumpla los {ANTICIPACION_MINIMA_DIAS} días.</span></label>
+                </div>
+                <label style={{ display: "flex", gap: 8, alignItems: "flex-start", cursor: "pointer" }}><input type="checkbox" checked={descontarSaldo} onChange={(e) => setFormulario((actual) => actual && { ...actual, descontarSaldo: e.target.checked })} /><span><strong>Descontar estos días del saldo disponible</strong>{yaAprobada ? " (se descuentan al guardar)" : " (al aprobarse)"}. Desmárcalo si el saldo cargado ya los considera.</span></label>
+              </div>
+            )}
             {sinAnticipacion && (
               <p role="alert" style={{ margin: "0 0 8px", padding: "10px 12px", borderRadius: 8, background: "#fdecea", border: "1px solid #d93025", color: "#b3261e", fontSize: 13 }}>
                 <strong>Las vacaciones deben solicitarse con al menos 15 días de anticipación.</strong> Vuelve a seleccionar las fechas o, si el motivo realmente es urgente, marca la solicitud como &quot;Urgente&quot; y explica el motivo en los comentarios.
               </p>
             )}
-            <p className="empty-note">{editando ? "Esta solicitud sigue en RRHH; en cuanto avance de etapa ya no podrá editarse." : "La solicitud entra al flujo de aprobación: RRHH → Jefe inmediato → Mesa Directiva."}</p>
+            <p className="empty-note">{editando ? "Esta solicitud sigue en RRHH; en cuanto avance de etapa ya no podrá editarse." : registroExtemporaneo && yaAprobada ? "La solicitud se guardará directamente como aprobada." : "La solicitud entra al flujo de aprobación: RRHH → Jefe inmediato → Mesa Directiva."}</p>
             <footer><button className="secondary-button" type="button" onClick={() => setFormulario(null)} title="Cancelar">Cancelar</button><button className="primary-button" type="submit" disabled={actualizando || sinAnticipacion} title={actualizando ? "Guardando…" : "Guardar solicitud"}>{actualizando ? "Guardando…" : "Guardar solicitud"}</button></footer>
           </form>
         </div>
