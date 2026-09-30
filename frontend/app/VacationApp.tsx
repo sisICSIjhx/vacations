@@ -12,6 +12,7 @@ import { ChangePasswordModal } from "./components/ChangePasswordModal";
 import { DashboardView } from "./components/DashboardView";
 import { EmployeeFocus } from "./components/EmployeeFocus";
 import { EmployeesView } from "./components/EmployeesView";
+import { AvisoSinAnticipacion, PanelExtemporaneo, reglasAnticipacion } from "./components/RegistroExtemporaneo";
 import { RequestsView } from "./components/RequestsView";
 import { Select } from "./components/Select";
 import { YearCalendar } from "./components/YearCalendar";
@@ -184,9 +185,10 @@ function RequestModal({ datos, perfil, actualizando, onClose, onCreate }: { dato
   // se topaba con un desplegable vacío y deshabilitado sin explicación (y el
   // guardado fallaba silenciosamente con "Selecciona un empleado válido").
   const sinEmpleadoVinculado = esAutoservicio && !perfil?.empleadoId;
+  const reglas = reglasAnticipacion(formulario, perfil, false);
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) onClose(); }}>
-      <form className="form-modal request-form" onSubmit={(e) => { e.preventDefault(); if (!sinEmpleadoVinculado) void onCreate(formulario); }}>
+      <form className="form-modal request-form" onSubmit={(e) => { e.preventDefault(); if (!sinEmpleadoVinculado && !reglas.sinAnticipacion) void onCreate(reglas.preparar(formulario)); }}>
         <header><div><span className="eyebrow">Calendario</span><h2>Crear solicitud</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar" title="Cerrar"><X size={19} /></button></header>
         {sinEmpleadoVinculado ? (
           <div className="inline-alert error">Tu cuenta todavía no está vinculada a un registro de empleado, así que no puedes crear solicitudes. Contacta a RRHH o a Administración para que la asocien.</div>
@@ -211,10 +213,12 @@ function RequestModal({ datos, perfil, actualizando, onClose, onCreate }: { dato
               )}
               <label><span>Inicio *</span><input required type="date" value={formulario.fechaInicio} onChange={(e) => actualizar("fechaInicio", e.target.value)} /></label><label><span>Fin *</span><input required type="date" min={formulario.fechaInicio} value={formulario.fechaFin} onChange={(e) => actualizar("fechaFin", e.target.value)} /></label><label><span>Reintegro *</span><input required type="date" min={formulario.fechaFin} value={formulario.fechaReintegro} onChange={(e) => actualizar("fechaReintegro", e.target.value)} title="Por defecto, el siguiente día hábil; puede ser el mismo día de la fecha final" /></label><div className="field-slot" style={{ display: "flex", flexDirection: "column" }}><span style={{ display: "block", marginBottom: 6, color: "var(--muted)", fontSize: 12, fontWeight: 650 }}>Tipo de solicitud</span><button type="button" className="secondary-button" aria-pressed={!!formulario.urgente} title="Marca la solicitud como no planeada; el comentario será obligatorio" onClick={() => setFormulario((actual) => ({ ...actual, urgente: !actual.urgente }))} style={{ width: "100%", minHeight: 48, justifyContent: "center", ...(formulario.urgente ? { background: "#fdecea", borderColor: "#d93025", color: "#b3261e" } : {}) }}>{formulario.urgente ? "🚨 Urgente" : "Marcar como urgente"}</button></div><label className="span-two"><span>Comentarios{formulario.urgente ? " *" : ""}</span><textarea required={!!formulario.urgente} rows={3} value={formulario.comentarios} onChange={(e) => actualizar("comentarios", e.target.value)} placeholder={formulario.urgente ? "Explica el motivo urgente (obligatorio)" : undefined} /></label>
             </div>
-            <p className="empty-note">La solicitud entra al flujo de aprobación: RRHH → Jefe inmediato → Mesa Directiva.</p>
+            <PanelExtemporaneo formulario={formulario} reglas={reglas} onChange={(cambios) => setFormulario((actual) => ({ ...actual, ...cambios }))} />
+            {reglas.sinAnticipacion && <AvisoSinAnticipacion />}
+            <p className="empty-note">{reglas.notaFlujo}</p>
           </>
         )}
-        <footer><button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button>{!sinEmpleadoVinculado && <button className="primary-button" disabled={actualizando} type="submit" title={actualizando ? "Guardando…" : "Guardar solicitud"}>{actualizando ? "Guardando…" : "Guardar solicitud"}</button>}</footer>
+        <footer><button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button>{!sinEmpleadoVinculado && <button className="primary-button" disabled={actualizando || reglas.sinAnticipacion} type="submit" title={actualizando ? "Guardando…" : "Guardar solicitud"}>{actualizando ? "Guardando…" : "Guardar solicitud"}</button>}</footer>
       </form>
     </div>
   );
