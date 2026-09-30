@@ -171,6 +171,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
           dias: Number(fila.dias_descontados ?? 0),
           comentarios: fila.comentarios ? String(fila.comentarios) : undefined,
           origen: fila.origen as SolicitudAusencia["origen"],
+          registroExtemporaneo: fila.registro_extemporaneo === true,
         });
       } else {
         actual.dias += Number(fila.dias_descontados ?? 0);
@@ -388,6 +389,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
               dias,
               comentarios: comentarioConUrgencia(formulario.comentarios, formulario.urgente) || undefined,
               origen: "empleado" as const,
+              registroExtemporaneo: extemporanea,
             }],
         empleados: aprobadaDirecto && descuenta
           ? actual.empleados.map((item) => item.id === empleado.id ? {
@@ -459,7 +461,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     if (!supabase) {
       if (etapa === "rrhh" && decision === "aprobado") {
         const diasAnticipacion = differenceInCalendarDays(parseISO(solicitud.fechaInicio), new Date());
-        if (diasAnticipacion < ANTICIPACION_MINIMA_DIAS && !separarUrgencia(solicitud.comentarios).urgente) {
+        if (diasAnticipacion < ANTICIPACION_MINIMA_DIAS && !separarUrgencia(solicitud.comentarios).urgente && !solicitud.registroExtemporaneo) {
           setError(`La solicitud no cumple la anticipación mínima de ${ANTICIPACION_MINIMA_DIAS} días (faltan ${ANTICIPACION_MINIMA_DIAS - diasAnticipacion} día(s)).`);
           setActualizando(false);
           return false;

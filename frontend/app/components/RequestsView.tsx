@@ -124,8 +124,10 @@ function DecisionModal({ solicitud, etapa, decision, onClose, onConfirm, actuali
   const diasAnticipacion = differenceInCalendarDays(parseISO(solicitud.fechaInicio), new Date());
   const { urgente, texto: motivoEmpleado } = separarUrgencia(solicitud.comentarios);
   const anticipacionInsuficiente = etapa === "rrhh" && decision === "aprobado" && diasAnticipacion < ANTICIPACION_MINIMA_DIAS;
-  // Sin la marca de urgente, la base de datos rechaza la aprobación: se bloquea el botón.
-  const bloqueadaPorAnticipacion = anticipacionInsuficiente && !urgente;
+  const extemporanea = !!solicitud.registroExtemporaneo;
+  // Sin la marca de urgente ni de registro extemporáneo, la base de datos
+  // rechaza la aprobación: se bloquea el botón.
+  const bloqueadaPorAnticipacion = anticipacionInsuficiente && !urgente && !extemporanea;
   // El motivo del rechazo se envía al empleado por correo; la base de datos también lo exige.
   const faltaMotivo = decision === "rechazado" && comentario.trim() === "";
   return (
@@ -145,6 +147,11 @@ function DecisionModal({ solicitud, etapa, decision, onClose, onConfirm, actuali
           <div className="inline-alert" style={{ ...estiloUrgente, fontWeight: 400 }}>
             <strong>🚨 Solicitud urgente.</strong>{anticipacionInsuficiente && <> Se pidió con {Math.max(diasAnticipacion, 0)} día(s) de anticipación (menos de los {ANTICIPACION_MINIMA_DIAS} requeridos), pero por estar marcada como urgente sí puede aprobarse.</>}
             {motivoEmpleado && <><br /><strong>Motivo del empleado:</strong> {motivoEmpleado}</>}
+          </div>
+        )}
+        {extemporanea && anticipacionInsuficiente && (
+          <div className="inline-alert" style={{ background: "color-mix(in srgb, #f59e0b 12%, transparent)", borderColor: "color-mix(in srgb, #f59e0b 45%, transparent)", color: "inherit" }}>
+            <strong>Registro extemporáneo.</strong> La capturó un administrador fuera de plazo{solicitud.fechaSolicitud ? ` (solicitada el ${format(parseISO(solicitud.fechaSolicitud), "d MMM yyyy", { locale: es })})` : ""}, por lo que puede aprobarse aunque no cumpla los {ANTICIPACION_MINIMA_DIAS} días de anticipación.
           </div>
         )}
         {bloqueadaPorAnticipacion && (

@@ -105,6 +105,8 @@ export interface SolicitudAusencia {
   dias: number;
   comentarios?: string;
   origen: "administrador" | "csv" | "formulario" | "empleado" | "integracion";
+  // Capturada por un administrador fuera de plazo: exenta de la anticipación mínima.
+  registroExtemporaneo?: boolean;
 }
 
 export interface DiaFestivo {
