@@ -172,6 +172,7 @@ export const datosDemostracion: DatosVacaciones = {
     { id: "cat-dual", codigo: "DUAL", nombre: "Dual", color: "#159A88" },
     { id: "cat-operativo", codigo: "OPERATIVO", nombre: "Operativo", color: "#E07A3F" },
   ],
+  ediciones: [],
   tiposAusencia: [{ id: "tipo-vacaciones", codigo: "VACACIONES", nombre: "Vacaciones", color: "#F4B740" }],
   diasFestivos: [
     { id: "fest-1", fecha: "2026-01-01", nombre: "Año Nuevo" },

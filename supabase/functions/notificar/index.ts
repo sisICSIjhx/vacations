@@ -41,7 +41,10 @@ function armarTexto(n: NotificacionPayload, appUrl: string | null): string {
   const tipo = c['Tipo'] ?? 'N/D'
   const del = c['Del'] ?? 'N/D'
   const al = c['Al'] ?? 'N/D'
-  const dias = diasNaturales(c['Del'], c['Al'])
+  // Desde 016 el SQL manda los dias que descuenta (sin el dia de descanso del
+  // empleado); los avisos anteriores no lo traen y se cuentan dias naturales.
+  const diasSql = Number(c['Días'])
+  const dias = c['Días'] && Number.isFinite(diasSql) ? diasSql : diasNaturales(c['Del'], c['Al'])
   const periodo = `📅 *Periodo:* ${del} al ${al}${dias ? ` (${dias} ${dias === 1 ? 'día' : 'días'})` : ''}`
   const jefe = c['Jefe inmediato']
   // La app marca las solicitudes extraordinarias con el prefijo [URGENTE] en el comentario
@@ -55,6 +58,11 @@ function armarTexto(n: NotificacionPayload, appUrl: string | null): string {
     `📝 *Tipo:* ${tipo}`,
     periodo,
   ]
+  // Quien decidio la etapa y su comentario (015); solo en avisos de decision
+  const revisor = c['Revisó']
+  const comentarioRevision = c['Comentario revisión']
+  const lineaComentario = (etiqueta: string) =>
+    comentarioRevision ? `💬 *${etiqueta}${revisor ? ` (${revisor})` : ''}:* ${comentarioRevision}` : ''
   const enlace = appUrl ? `🔗 ${appUrl.replace(/\/$/, '')}` : ''
 
   let cuerpo: string[]
@@ -73,6 +81,7 @@ function armarTexto(n: NotificacionPayload, appUrl: string | null): string {
       cuerpo = [
         '✅ *RRHH APROBÓ LA SOLICITUD*',
         ...datos,
+        lineaComentario('Comentario'),
         SALTO,
         '📍 *Etapa:* 2 de 3 · Jefe inmediato',
         `⏳ *Acción requerida:* ${jefe ? `*${jefe}* (jefe inmediato de ${empleado})` : 'el jefe inmediato'} debe aprobar o rechazar.`,
@@ -82,6 +91,7 @@ function armarTexto(n: NotificacionPayload, appUrl: string | null): string {
       cuerpo = [
         '✅ *JEFE INMEDIATO APROBÓ LA SOLICITUD*',
         ...datos,
+        lineaComentario('Comentario'),
         SALTO,
         '📍 *Etapa:* 3 de 3 · Mesa directiva',
         '⏳ *Acción requerida:* la mesa directiva debe dar la aprobación final.',
@@ -91,6 +101,7 @@ function armarTexto(n: NotificacionPayload, appUrl: string | null): string {
       cuerpo = [
         '🎉 *SOLICITUD APROBADA · PROCESO CONCLUIDO*',
         ...datos,
+        lineaComentario('Comentario'),
         SALTO,
         '📍 *Resultado:* aprobada por RRHH, jefe inmediato y mesa directiva.',
         '_No se requiere ninguna acción adicional._',
@@ -102,6 +113,7 @@ function armarTexto(n: NotificacionPayload, appUrl: string | null): string {
         ...datos,
         SALTO,
         c['Rechazó'] ? `🚫 *Rechazada en la etapa de:* ${c['Rechazó']}` : '',
+        lineaComentario('Motivo del rechazo'),
         '📍 *Resultado:* el flujo se detiene, no continúa a las siguientes etapas.',
         '_Consulta el sistema para ver el detalle._',
       ]
@@ -118,6 +130,42 @@ function armarTexto(n: NotificacionPayload, appUrl: string | null): string {
       ]
       break
     }
+    // Solicitudes de edicion (017): Del/Al/Días son el periodo vigente de la solicitud
+    case 'edicion_solicitada':
+      cuerpo = [
+        '✏️ *SOLICITUD DE EDICIÓN*',
+        ...datos,
+        `🆕 *Periodo solicitado:* ${c['Nuevo del'] ?? 'N/D'} al ${c['Nuevo al'] ?? 'N/D'}`,
+        c['Motivo'] ? `💬 *Motivo:* ${c['Motivo']}` : '',
+        c['Registró'] ? `🗂️ *Registró:* ${c['Registró']}` : '',
+        SALTO,
+        '⏳ *Acción requerida:* el administrador debe revisar y aplicar o rechazar la edición.',
+      ]
+      break
+    case 'edicion_aplicada':
+      cuerpo = [
+        '✏️ *EDICIÓN APLICADA*',
+        `👤 *Empleado:* ${empleado}`,
+        `📝 *Tipo:* ${tipo}`,
+        `↩️ *Periodo anterior:* ${c['Antes del'] ?? 'N/D'} al ${c['Antes al'] ?? 'N/D'}${c['Días antes'] ? ` (${c['Días antes']} ${c['Días antes'] === '1' ? 'día' : 'días'})` : ''}`,
+        periodo.replace('*Periodo:*', '*Nuevo periodo:*'),
+        c['Motivo'] ? `💬 *Motivo del empleado:* ${c['Motivo']}` : '',
+        c['Nota'] ? `🛠️ *Nota del administrador${c['Editó'] ? ` (${c['Editó']})` : ''}:* ${c['Nota']}` : '',
+        SALTO,
+        '_Se notificó al empleado por correo. La solicitud conserva su etapa de aprobación._',
+      ]
+      break
+    case 'edicion_rechazada':
+      cuerpo = [
+        '🚫 *EDICIÓN RECHAZADA*',
+        ...datos,
+        `🆕 *Periodo solicitado:* ${c['Nuevo del'] ?? 'N/D'} al ${c['Nuevo al'] ?? 'N/D'}`,
+        c['Motivo'] ? `💬 *Motivo del empleado:* ${c['Motivo']}` : '',
+        c['Nota'] ? `🛠️ *Motivo del rechazo${c['Revisó'] ? ` (${c['Revisó']})` : ''}:* ${c['Nota']}` : '',
+        SALTO,
+        '_La solicitud se queda como estaba. Se notificó al empleado por correo._',
+      ]
+      break
     default:
       // Tipo desconocido: titulo + campos tal cual llegaron
       cuerpo = [`*${n.titulo}*`, (n.mensaje ?? '').split(' | ').filter((p) => !p.startsWith('Tel jefe:')).join('\n')]

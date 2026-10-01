@@ -4,6 +4,8 @@
 //   solicitud_creada  acuse de recibo
 //   aprobada          resolucion final
 //   rechazada         con el motivo y la invitacion a reagendar
+//   edicion_aplicada  el administrador aplico la edicion que pidio (017)
+//   edicion_rechazada el administrador no aplico la edicion, con el motivo
 //
 // La invoca vacaciones.enviar_correo_empleado() (pg_net), definida en
 // 010_avisos_empleado_y_recordatorios.sql. El payload ya trae todos los datos;
@@ -29,7 +31,7 @@ import { ICONO_APROBADA_PNG, ICONO_RECHAZADA_PNG, ICONO_RECIBIDA_PNG, LOGO_PNG }
 type Etapa = 'rrhh' | 'jefe_inmediato' | 'mesa_directiva'
 
 interface Payload {
-  evento: 'solicitud_creada' | 'aprobada' | 'rechazada'
+  evento: 'solicitud_creada' | 'aprobada' | 'rechazada' | 'edicion_aplicada' | 'edicion_rechazada'
   solicitud_id: string
   empleado: { nombre: string; correo: string | null }
   tipo_ausencia: string | null
@@ -38,6 +40,14 @@ interface Payload {
   fecha_reintegro: string | null
   dias: number
   revision: { etapa: Etapa; decision: string; comentario: string | null } | null
+  // Solo en los eventos edicion_* (vacaciones.enviar_correo_edicion)
+  edicion?: {
+    motivo: string
+    respuesta: string | null
+    resuelto_por: string | null
+    anterior: { fecha_inicio: string; fecha_fin: string; fecha_reintegro: string | null; dias: number } | null
+    propuesta: { fecha_inicio: string; fecha_fin: string; fecha_reintegro: string | null }
+  }
 }
 
 // Imagen adjunta en linea: el HTML la referencia como src="cid:<cid>"
@@ -100,6 +110,16 @@ const ESTADOS: Record<Payload['evento'], Estado> = {
     color: '#C63D4F',
     icono: { cid: 'estado-rechazada', nombre: 'estado-rechazada.png', base64: ICONO_RECHAZADA_PNG },
   },
+  edicion_aplicada: {
+    etiqueta: 'Solicitud modificada',
+    color: C.azulMedio,
+    icono: { cid: 'estado-recibida', nombre: 'estado-recibida.png', base64: ICONO_RECIBIDA_PNG },
+  },
+  edicion_rechazada: {
+    etiqueta: 'Edición no aplicada',
+    color: '#C63D4F',
+    icono: { cid: 'estado-rechazada', nombre: 'estado-rechazada.png', base64: ICONO_RECHAZADA_PNG },
+  },
 }
 
 const LOGO: ImagenEnLinea = { cid: 'logo-icsi', nombre: 'logo-icsi.png', base64: LOGO_PNG }
@@ -125,12 +145,12 @@ function panelPeriodo(p: Payload): string {
     </table>`
 }
 
-function panelMotivo(motivo: string, estado: Estado): string {
+function panelMotivo(motivo: string, estado: Estado, etiqueta = 'Motivo'): string {
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
       style="margin:0 0 24px;border:1px solid ${C.border};border-collapse:separate">
       <tr><td style="padding:16px">
-        <div style="${estiloEtiqueta};color:${estado.color}">Motivo</div>
+        <div style="${estiloEtiqueta};color:${estado.color}">${escapar(etiqueta)}</div>
         <div style="margin-top:6px;font-family:${FUENTE};font-size:16px;line-height:24px;color:${C.ink}">${escapar(motivo).replace(/\n/g, '<br>')}</div>
       </td></tr>
     </table>`
@@ -238,6 +258,41 @@ function armarCorreo(p: Payload): Correo | null {
           ${motivo ? panelMotivo(motivo, estado) : ''}
           ${parrafo('Te invitamos cordialmente a <strong>reagendar tus vacaciones</strong> en otras fechas. Para cualquier aclaración, el área de Recursos Humanos está a tu disposición.')}
           ${appUrl ? boton(appUrl, 'Registrar nueva solicitud') : ''}`),
+      }
+    }
+
+    case 'edicion_aplicada': {
+      const ed = p.edicion
+      const anterior = ed?.anterior
+      // El administrador pudo ajustar las fechas que se pidieron
+      const ajustada = ed && (ed.propuesta.fecha_inicio !== p.fecha_inicio || ed.propuesta.fecha_fin !== p.fecha_fin)
+      return {
+        asunto: 'Se modificó tu solicitud de vacaciones',
+        imagenes,
+        html: plantilla(estado, 'Se modificó tu solicitud de vacaciones', `
+          ${saludo}
+          ${parrafo(`Atendimos tu solicitud de edición${ed?.motivo ? ` («${escapar(ed.motivo)}»)` : ''}. Tu solicitud de vacaciones quedó con el siguiente periodo:`, '0 0 8px')}
+          ${panelPeriodo(p)}
+          ${anterior ? parrafo(`Periodo anterior: del ${escapar(fechaLarga(anterior.fecha_inicio))} al ${escapar(fechaLarga(anterior.fecha_fin))} (${textoDias(anterior.dias)}).`) : ''}
+          ${ajustada ? parrafo(`<strong>Nota:</strong> el periodo final es distinto al que pediste (del ${escapar(fechaLarga(ed!.propuesta.fecha_inicio))} al ${escapar(fechaLarga(ed!.propuesta.fecha_fin))}); revisa el motivo del ajuste.`) : ''}
+          ${ed?.respuesta ? panelMotivo(ed.respuesta, estado, ed.resuelto_por ? `Motivo de la edición · ${ed.resuelto_por}` : 'Motivo de la edición') : ''}
+          ${parrafo('Tu solicitud conserva la etapa de aprobación en la que estaba. Si algo no coincide, comunícate con Recursos Humanos.')}
+          ${appUrl ? boton(appUrl, 'Consultar mi solicitud') : ''}`),
+      }
+    }
+
+    case 'edicion_rechazada': {
+      const ed = p.edicion
+      return {
+        asunto: 'Tu solicitud de edición no fue aplicada',
+        imagenes,
+        html: plantilla(estado, 'Tu solicitud de edición no fue aplicada', `
+          ${saludo}
+          ${parrafo(`Revisamos tu solicitud para cambiar el periodo${ed ? ` al del ${escapar(fechaLarga(ed.propuesta.fecha_inicio))} al ${escapar(fechaLarga(ed.propuesta.fecha_fin))}` : ''} y <strong>no se aplicó</strong>. Tu solicitud de vacaciones sigue con este periodo:`, '0 0 8px')}
+          ${panelPeriodo(p)}
+          ${ed?.respuesta ? panelMotivo(ed.respuesta, estado) : ''}
+          ${parrafo('Si necesitas otro cambio puedes registrar una nueva solicitud de edición desde el sistema.')}
+          ${appUrl ? boton(appUrl, 'Consultar mi solicitud') : ''}`),
       }
     }
 

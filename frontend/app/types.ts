@@ -85,6 +85,8 @@ export interface Empleado {
   estado: "activo" | "inactivo";
   jefeInmediatoId?: string;
   jefeInmediato?: string;
+  // Dia de descanso semanal (0=domingo ... 6=sábado); no cuenta como vacaciones.
+  diaDescanso?: number;
   saldo: SaldoVacaciones;
 }
 
@@ -109,6 +111,31 @@ export interface SolicitudAusencia {
   registroExtemporaneo?: boolean;
 }
 
+// Solicitud de edicion de una solicitud de vacaciones y su bitacora (017):
+// la pide el empleado y el administrador la aplica (con ajustes) o la rechaza.
+export interface PeriodoEdicion {
+  fechaInicio: string;
+  fechaFin: string;
+  fechaReintegro?: string;
+  dias?: number;
+}
+
+export interface EdicionSolicitud {
+  id: string;
+  solicitudId: string;
+  empleadoId: string;
+  estado: "pendiente" | "aplicada" | "rechazada";
+  motivo: string;
+  propuesta: PeriodoEdicion;
+  solicitadoPor?: string;
+  solicitadoEn: string;
+  respuesta?: string;
+  resueltoPor?: string;
+  resueltoEn?: string;
+  anterior?: PeriodoEdicion;
+  nuevo?: PeriodoEdicion;
+}
+
 export interface DiaFestivo {
   id: string;
   fecha: string;
@@ -120,6 +147,7 @@ export interface DatosVacaciones {
   empleados: Empleado[];
   solicitudes: SolicitudAusencia[];
   diasFestivos: DiaFestivo[];
+  ediciones: EdicionSolicitud[];
   sedes: Catalogo[];
   proyectos: Catalogo[];
   categorias: Catalogo[];
@@ -148,6 +176,7 @@ export interface EmpleadoFormulario {
   categoriaId: string;
   fechaIngreso: string;
   jefeInmediatoId: string;
+  diaDescanso: string;
   diasPorDerecho: number;
   diasAcumulados: number;
   diasDisponibles: number;

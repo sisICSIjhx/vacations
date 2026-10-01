@@ -405,6 +405,9 @@ export default function VacationApp() {
               onObtenerRevisiones={sistema.obtenerRevisiones}
               onCancelar={perfil?.rol === "administrador" ? sistema.cambiarEstadoSolicitud : undefined}
               onDelete={perfil?.rol === "administrador" ? sistema.eliminarSolicitud : undefined}
+              onSolicitarEdicion={sistema.solicitarEdicion}
+              onAplicarEdicion={perfil?.rol === "administrador" ? sistema.aplicarEdicion : undefined}
+              onRechazarEdicion={perfil?.rol === "administrador" ? sistema.rechazarEdicion : undefined}
             />
           )}
           {vistaEfectiva === "catalogos" && puedeGestionar && <CatalogsView datos={sistema.datos} actualizando={sistema.actualizando} onSave={sistema.guardarCatalogo} onDelete={esAdministrador ? sistema.eliminarCatalogo : undefined} onSaveFestivo={sistema.guardarFestivo} onDeleteFestivo={esAdministrador ? sistema.eliminarFestivo : undefined} />}

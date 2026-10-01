@@ -46,7 +46,8 @@ export class AccesosController {
 
   @Patch(':usuarioId')
   @ApiOperation({
-    summary: 'Actualiza rol, estado o vínculo con empleado de un acceso',
+    summary:
+      'Actualiza rol, estado, correo de inicio de sesión o vínculo con empleado de un acceso',
   })
   actualizar(
     @Param('usuarioId') usuarioId: string,

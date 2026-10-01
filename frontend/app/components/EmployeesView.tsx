@@ -7,6 +7,7 @@ import { BadgeCheck, Check, Copy, Eye, KeyRound, Pencil, Plus, Search, ShieldChe
 import { accesosDisponibles, actualizarAcceso, crearAcceso, listarAccesos, restablecerContrasena, verContrasena, type AccesoCreado, type AccesoUsuario } from "../lib/api";
 import { obtenerSupabase, supabaseConfigurado } from "../lib/supabase";
 import { Select } from "./Select";
+import { DIAS_SEMANA } from "../lib/diaHabil";
 import type { DatosVacaciones, Empleado, EmpleadoFormulario, RolUsuario } from "../types";
 
 const ETIQUETA_ROL: Record<RolUsuario, string> = {
@@ -40,6 +41,7 @@ const formularioVacio: EmpleadoFormulario = {
   categoriaId: "",
   fechaIngreso: "",
   jefeInmediatoId: "",
+  diaDescanso: "",
   diasPorDerecho: 0,
   diasAcumulados: 0,
   diasDisponibles: 0,
@@ -60,6 +62,7 @@ function desdeEmpleado(empleado: Empleado): EmpleadoFormulario {
     categoriaId: empleado.categoriaId ?? "",
     fechaIngreso: empleado.fechaIngreso ?? "",
     jefeInmediatoId: empleado.jefeInmediatoId ?? "",
+    diaDescanso: empleado.diaDescanso === undefined ? "" : String(empleado.diaDescanso),
     diasPorDerecho: empleado.saldo.diasPorDerecho,
     diasAcumulados: empleado.saldo.diasAcumulados,
     diasDisponibles: empleado.saldo.diasDisponibles,
@@ -86,6 +89,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
     : undefined;
 
   const [correo, setCorreo] = useState(empleado.correo ?? "");
+  const [correoAcceso, setCorreoAcceso] = useState(accesoActual?.correo ?? "");
   const [rol, setRol] = useState<RolUsuario>(accesoActual?.rol ?? "empleado");
   const [activo, setActivo] = useState(accesoActual?.activo ?? true);
   const [guardando, setGuardando] = useState(false);
@@ -131,7 +135,10 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
     setGuardando(true);
     setError(null);
     try {
-      await actualizarAcceso(accesoActual.usuarioId, { rol, activo, permitirCambioContrasena: permitirCambio, ...(forzarCambio ? { forzarCambioContrasena: true } : {}) });
+      const correoNuevo = correoAcceso.trim();
+      const cambiaCorreo = Boolean(correoNuevo) && correoNuevo.toLowerCase() !== (accesoActual.correo ?? "").toLowerCase();
+      if (cambiaCorreo && !window.confirm(`¿Cambiar el correo de acceso de ${empleado.nombre} a ${correoNuevo}? A partir de ahora deberá iniciar sesión con ese correo; su contraseña no cambia.`)) return;
+      await actualizarAcceso(accesoActual.usuarioId, { rol, activo, permitirCambioContrasena: permitirCambio, ...(forzarCambio ? { forzarCambioContrasena: true } : {}), ...(cambiaCorreo ? { correo: correoNuevo } : {}) });
       onRefrescar();
       onClose();
     } catch (err) {
@@ -279,7 +286,7 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
               <label><span>Rol</span>{selectorRol(rol, setRol)}</label>
               <label><span>Estado</span><Select value={activo ? "activo" : "inactivo"} onChange={(valor) => setActivo(valor === "activo")}><option value="activo">Activo</option><option value="inactivo">Inactivo</option></Select></label>
             </div>
-            {accesoActual.correo && <p className="empty-note">Correo: <strong>{accesoActual.correo}</strong></p>}
+            <label><span>Correo de inicio de sesión</span><input type="email" value={correoAcceso} onChange={(e) => setCorreoAcceso(e.target.value)} placeholder="empleado@icsi.com" /></label>
             <label className="option-card">
               <div className="option-text">
                 <strong>Permitir que el usuario cambie su contraseña</strong>
@@ -432,6 +439,7 @@ export function EmployeesView({ datos, actualizando, onSave, onToggleEstado, onD
               <label><span>Categoría</span><Select value={formulario.categoriaId} onChange={(valor) => actualizar("categoriaId", valor)}><option value="">Seleccionar</option>{datos.categorias.map((item) => <option value={item.id} key={item.id}>{item.nombre}</option>)}</Select></label>
               <label><span>Fecha de ingreso</span><input type="date" value={formulario.fechaIngreso} onChange={(e) => actualizar("fechaIngreso", e.target.value)} /></label>
               <label><span>Jefe inmediato</span><Select value={formulario.jefeInmediatoId} onChange={(valor) => actualizar("jefeInmediatoId", valor)}><option value="">Sin jefe asignado</option>{datos.empleados.filter((item) => item.id !== formulario.id).map((item) => <option value={item.id} key={item.id}>{item.nombre}</option>)}</Select></label>
+              <label><span>Día de descanso</span><Select value={formulario.diaDescanso} onChange={(valor) => actualizar("diaDescanso", valor)}><option value="">Sin definir (cuenta todos los días)</option>{DIAS_SEMANA.map((dia, indice) => <option value={String(indice)} key={dia}>{dia}</option>)}</Select></label>
               <label><span>Color en calendario</span><span className="color-input"><input type="color" value={formulario.color} onChange={(e) => actualizar("color", e.target.value)} /><code>{formulario.color}</code></span></label>
             </div>
             <div className="form-section-title"><BadgeCheck size={16} /><span>Saldo vacacional</span><small>Son conceptos diferentes</small></div>

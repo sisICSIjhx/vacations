@@ -208,6 +208,8 @@ export class AccesosService {
     if (dto.activo !== undefined) cambios.activo = dto.activo;
     if (dto.empleadoId) cambios.empleado_id = dto.empleadoId;
 
+    if (dto.correo) await this.cambiarCorreo(usuarioId, dto.correo);
+
     const meta: Record<string, boolean> = {};
     if (dto.permitirCambioContrasena !== undefined) {
       meta.puede_cambiar_contrasena = dto.permitirCambioContrasena;
@@ -222,7 +224,7 @@ export class AccesosService {
       if (errorMeta) throw new UnprocessableEntityException(errorMeta.message);
     }
     if (!Object.keys(cambios).length) {
-      return { actualizado: Object.keys(meta).length > 0 };
+      return { actualizado: Object.keys(meta).length > 0 || !!dto.correo };
     }
 
     const { error } = await db
@@ -231,6 +233,51 @@ export class AccesosService {
       .eq('usuario_id', usuarioId);
     if (error) throw new UnprocessableEntityException(error.message);
     return { actualizado: true };
+  }
+
+  // Cambia el correo de inicio de sesión sin enviar confirmación: el
+  // administrador ya lo validó. La contraseña no cambia. Si el correo de
+  // avisos del empleado era el mismo, se actualiza también.
+  private async cambiarCorreo(usuarioId: string, correoNuevo: string) {
+    const admin = this.supabase.administrador();
+    const correo = correoNuevo.trim().toLowerCase();
+
+    const { data: actual, error: errorActual } =
+      await admin.auth.admin.getUserById(usuarioId);
+    if (errorActual || !actual.user) {
+      throw new NotFoundException('El usuario no existe.');
+    }
+    const correoAnterior = actual.user.email?.toLowerCase() ?? null;
+    if (correoAnterior === correo) return;
+
+    const otro = await this.buscarUsuarioPorCorreo(admin, correo);
+    if (otro && otro.id !== usuarioId) {
+      throw new ConflictException(
+        'Ese correo ya lo usa otra cuenta de la plataforma.',
+      );
+    }
+
+    const { error } = await admin.auth.admin.updateUserById(usuarioId, {
+      email: correo,
+      email_confirm: true,
+    });
+    if (error) throw new UnprocessableEntityException(error.message);
+
+    if (correoAnterior) {
+      const db = admin.schema('vacaciones');
+      const { data: perfil } = await db
+        .from('perfiles_usuario')
+        .select('empleado_id')
+        .eq('usuario_id', usuarioId)
+        .maybeSingle();
+      if (perfil?.empleado_id) {
+        await db
+          .from('empleados')
+          .update({ correo_electronico: correo })
+          .eq('id', perfil.empleado_id)
+          .ilike('correo_electronico', correoAnterior);
+      }
+    }
   }
 
   async restablecerContrasena(

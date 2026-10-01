@@ -55,6 +55,11 @@ export class ActualizarAccesoDto {
   @IsOptional()
   @IsUUID()
   empleadoId?: string;
+
+  // Nuevo correo con el que el usuario inicia sesión.
+  @IsOptional()
+  @IsEmail()
+  correo?: string;
 }
 
 export class RestablecerContrasenaDto {

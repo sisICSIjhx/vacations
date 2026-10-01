@@ -5,11 +5,12 @@ import { differenceInCalendarDays, parseISO } from "date-fns";
 import { datosDemostracion, revisionesDemostracion } from "../data/demo";
 import { obtenerSupabase, supabaseConfigurado } from "../lib/supabase";
 import { comentarioConUrgencia, separarUrgencia } from "../lib/urgente";
-import { siguienteDiaHabil } from "../lib/diaHabil";
+import { diasVacaciones, siguienteDiaHabil } from "../lib/diaHabil";
 import type {
   Catalogo,
   DatosVacaciones,
   DecisionRevision,
+  EdicionSolicitud,
   Empleado,
   EmpleadoFormulario,
   EstadoSolicitud,
@@ -22,6 +23,39 @@ import type {
 type TipoCatalogo = "sedes" | "proyectos" | "categorias";
 
 const copiarDemo = (): DatosVacaciones => structuredClone(datosDemostracion);
+
+function periodoDesdeJson(valor: unknown): EdicionSolicitud["anterior"] {
+  if (!valor || typeof valor !== "object") return undefined;
+  const p = valor as Record<string, unknown>;
+  return {
+    fechaInicio: String(p.fecha_inicio),
+    fechaFin: String(p.fecha_fin),
+    fechaReintegro: p.fecha_reintegro ? String(p.fecha_reintegro) : undefined,
+    dias: p.dias === undefined || p.dias === null ? undefined : Number(p.dias),
+  };
+}
+
+function edicionDesdeFila(fila: Record<string, unknown>): EdicionSolicitud {
+  return {
+    id: String(fila.id),
+    solicitudId: String(fila.solicitud_ausencia_id),
+    empleadoId: String(fila.empleado_id),
+    estado: fila.estado as EdicionSolicitud["estado"],
+    motivo: String(fila.motivo ?? ""),
+    propuesta: {
+      fechaInicio: String(fila.fecha_inicio_propuesta),
+      fechaFin: String(fila.fecha_fin_propuesta),
+      fechaReintegro: fila.fecha_reintegro_propuesta ? String(fila.fecha_reintegro_propuesta) : undefined,
+    },
+    solicitadoPor: fila.solicitado_por_nombre ? String(fila.solicitado_por_nombre) : undefined,
+    solicitadoEn: String(fila.solicitado_en),
+    respuesta: fila.respuesta ? String(fila.respuesta) : undefined,
+    resueltoPor: fila.resuelto_por_nombre ? String(fila.resuelto_por_nombre) : undefined,
+    resueltoEn: fila.resuelto_en ? String(fila.resuelto_en) : undefined,
+    anterior: periodoDesdeJson(fila.valores_anteriores),
+    nuevo: periodoDesdeJson(fila.valores_nuevos),
+  };
+}
 
 const ANTICIPACION_MINIMA_DIAS = 15;
 
@@ -73,6 +107,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       proyectosResultado,
       categoriasResultado,
       tiposResultado,
+      edicionesResultado,
     ] = await Promise.all([
       db.from("empleados").select("*").is("eliminado_en", null).order("nombre_completo"),
       db.from("v_saldo_vacaciones_empleado").select("*").eq("anio_asignacion", anio),
@@ -82,6 +117,8 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       db.from("proyectos").select("id,codigo,nombre").eq("activo", true).is("eliminado_en", null).order("nombre"),
       db.from("categorias_empleado").select("id,codigo,nombre,color").eq("activo", true).is("eliminado_en", null).order("nombre"),
       db.from("tipos_ausencia").select("id,codigo,nombre,color").eq("activo", true).is("eliminado_en", null).order("nombre"),
+      // RLS: cada quien ve las ediciones de las solicitudes que puede ver (017)
+      db.from("solicitudes_edicion").select("*").order("solicitado_en", { ascending: false }),
     ]);
 
     const resultados = [
@@ -93,6 +130,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       proyectosResultado,
       categoriasResultado,
       tiposResultado,
+      edicionesResultado,
     ];
     const primerError = resultados.find((resultado) => resultado.error)?.error;
     if (primerError) {
@@ -136,6 +174,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
         estado: fila.estado === "inactivo" ? "inactivo" : "activo",
         jefeInmediatoId,
         jefeInmediato: jefeInmediatoId ? nombrePorEmpleado.get(jefeInmediatoId) : undefined,
+        diaDescanso: fila.dia_descanso === null || fila.dia_descanso === undefined ? undefined : Number(fila.dia_descanso),
         saldo: {
           anio,
           diasPorDerecho: Number(saldo?.dias_por_derecho ?? 0),
@@ -187,6 +226,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
         nombre: String(fila.nombre),
         sedeId: fila.sede_id ? String(fila.sede_id) : undefined,
       })),
+      ediciones: (edicionesResultado.data ?? []).map(edicionDesdeFila),
       sedes,
       proyectos,
       categorias,
@@ -232,6 +272,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
           estado: existente?.estado ?? "activo",
           jefeInmediatoId: formulario.jefeInmediatoId || undefined,
           jefeInmediato,
+          diaDescanso: formulario.diaDescanso === "" ? undefined : Number(formulario.diaDescanso),
           saldo: {
             anio,
             diasPorDerecho: formulario.diasPorDerecho,
@@ -279,6 +320,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       categoria_id: formulario.categoriaId || null,
       fecha_ingreso: formulario.fechaIngreso || null,
       jefe_inmediato_id: formulario.jefeInmediatoId || null,
+      dia_descanso: formulario.diaDescanso === "" ? null : Number(formulario.diaDescanso),
     };
 
     let empleadoId = formulario.id;
@@ -330,7 +372,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       setActualizando(false);
       return false;
     }
-    const dias = differenceInCalendarDays(parseISO(formulario.fechaFin), parseISO(formulario.fechaInicio)) + 1;
+    const dias = diasVacaciones(formulario.fechaInicio, formulario.fechaFin, empleado.diaDescanso);
     // El reintegro lo elige quien captura (por defecto, el siguiente día hábil)
     // y puede coincidir con la fecha final, pero no ser anterior.
     const fechaReintegro = formulario.fechaReintegro || siguienteDiaHabil(formulario.fechaFin);
@@ -741,6 +783,105 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     return !deleteError;
   }, [cargarDesdeSupabase]);
 
+  // ---- Solicitudes de edicion (017) ----
+  // El empleado (o el administrador en su nombre) pide el cambio; solo el
+  // administrador lo aplica (pudiendo ajustar las fechas) o lo rechaza.
+  const solicitarEdicion = useCallback(async (solicitudId: string, propuesta: { fechaInicio: string; fechaFin: string; fechaReintegro: string; motivo: string }) => {
+    setActualizando(true);
+    setError(null);
+    const supabase = obtenerSupabase();
+    if (!supabase) {
+      const solicitud = datos.solicitudes.find((item) => item.id === solicitudId);
+      setDatos((actual) => ({
+        ...actual,
+        ediciones: [{
+          id: `ed-${Date.now()}`,
+          solicitudId,
+          empleadoId: solicitud?.empleadoId ?? "",
+          estado: "pendiente" as const,
+          motivo: propuesta.motivo.trim(),
+          propuesta: { fechaInicio: propuesta.fechaInicio, fechaFin: propuesta.fechaFin, fechaReintegro: propuesta.fechaReintegro || undefined },
+          solicitadoEn: new Date().toISOString(),
+        }, ...actual.ediciones],
+      }));
+      setActualizando(false);
+      return true;
+    }
+    const { error: rpcError } = await supabase.schema("vacaciones").rpc("solicitar_edicion_solicitud", {
+      p_solicitud_id: solicitudId,
+      p_motivo: propuesta.motivo,
+      p_fecha_inicio: propuesta.fechaInicio,
+      p_fecha_fin: propuesta.fechaFin,
+      p_fecha_reintegro: propuesta.fechaReintegro || null,
+    });
+    if (rpcError) setError(rpcError.message);
+    else await cargarDesdeSupabase();
+    setActualizando(false);
+    return !rpcError;
+  }, [cargarDesdeSupabase, datos.solicitudes]);
+
+  const aplicarEdicion = useCallback(async (edicionId: string, formulario: SolicitudFormulario, motivo: string) => {
+    setActualizando(true);
+    setError(null);
+    const fechaReintegro = formulario.fechaReintegro || siguienteDiaHabil(formulario.fechaFin);
+    const comentarios = comentarioConUrgencia(formulario.comentarios, formulario.urgente) || null;
+    const supabase = obtenerSupabase();
+    if (!supabase) {
+      const edicion = datos.ediciones.find((item) => item.id === edicionId);
+      const solicitud = datos.solicitudes.find((item) => item.id === edicion?.solicitudId);
+      const empleado = datos.empleados.find((item) => item.id === solicitud?.empleadoId);
+      const dias = diasVacaciones(formulario.fechaInicio, formulario.fechaFin, empleado?.diaDescanso);
+      setDatos((actual) => ({
+        ...actual,
+        solicitudes: actual.solicitudes.map((item) => item.id === solicitud?.id ? { ...item, fechaInicio: formulario.fechaInicio, fechaFin: formulario.fechaFin, fechaReintegro, dias, comentarios: comentarios ?? undefined } : item),
+        ediciones: actual.ediciones.map((item) => item.id === edicionId ? {
+          ...item,
+          estado: "aplicada" as const,
+          respuesta: motivo.trim(),
+          resueltoEn: new Date().toISOString(),
+          anterior: solicitud ? { fechaInicio: solicitud.fechaInicio, fechaFin: solicitud.fechaFin, fechaReintegro: solicitud.fechaReintegro, dias: solicitud.dias } : undefined,
+          nuevo: { fechaInicio: formulario.fechaInicio, fechaFin: formulario.fechaFin, fechaReintegro, dias },
+        } : item),
+      }));
+      setActualizando(false);
+      return true;
+    }
+    const { error: rpcError } = await supabase.schema("vacaciones").rpc("aplicar_edicion_solicitud", {
+      p_edicion_id: edicionId,
+      p_fecha_inicio: formulario.fechaInicio,
+      p_fecha_fin: formulario.fechaFin,
+      p_fecha_reintegro: fechaReintegro,
+      p_comentarios: comentarios,
+      p_motivo: motivo,
+    });
+    if (rpcError) setError(rpcError.message);
+    else await cargarDesdeSupabase();
+    setActualizando(false);
+    return !rpcError;
+  }, [cargarDesdeSupabase, datos.ediciones, datos.empleados, datos.solicitudes]);
+
+  const rechazarEdicion = useCallback(async (edicionId: string, motivo: string) => {
+    setActualizando(true);
+    setError(null);
+    const supabase = obtenerSupabase();
+    if (!supabase) {
+      setDatos((actual) => ({
+        ...actual,
+        ediciones: actual.ediciones.map((item) => item.id === edicionId ? { ...item, estado: "rechazada" as const, respuesta: motivo.trim(), resueltoEn: new Date().toISOString() } : item),
+      }));
+      setActualizando(false);
+      return true;
+    }
+    const { error: rpcError } = await supabase.schema("vacaciones").rpc("rechazar_edicion_solicitud", {
+      p_edicion_id: edicionId,
+      p_motivo: motivo,
+    });
+    if (rpcError) setError(rpcError.message);
+    else await cargarDesdeSupabase();
+    setActualizando(false);
+    return !rpcError;
+  }, [cargarDesdeSupabase]);
+
   return useMemo(() => ({
     datos,
     cargando,
@@ -756,9 +897,12 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     cambiarEstadoSolicitud,
     revisarSolicitud,
     obtenerRevisiones,
+    solicitarEdicion,
+    aplicarEdicion,
+    rechazarEdicion,
     guardarCatalogo,
     eliminarCatalogo,
     guardarFestivo,
     eliminarFestivo,
-  }), [actualizando, cambiarEstadoEmpleado, cambiarEstadoSolicitud, cargando, cargarDesdeSupabase, datos, eliminarCatalogo, eliminarEmpleado, eliminarFestivo, eliminarSolicitud, error, guardarCatalogo, guardarEmpleado, guardarFestivo, guardarSolicitud, obtenerRevisiones, revisarSolicitud]);
+  }), [actualizando, cambiarEstadoEmpleado, cambiarEstadoSolicitud, cargando, cargarDesdeSupabase, datos, eliminarCatalogo, eliminarEmpleado, eliminarFestivo, eliminarSolicitud, error, guardarCatalogo, guardarEmpleado, guardarFestivo, guardarSolicitud, obtenerRevisiones, rechazarEdicion, revisarSolicitud, solicitarEdicion, aplicarEdicion]);
 }

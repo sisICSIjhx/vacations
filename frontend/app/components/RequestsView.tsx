@@ -8,9 +8,11 @@ import { Select } from "./Select";
 import { separarUrgencia } from "../lib/urgente";
 import { siguienteDiaHabil } from "../lib/diaHabil";
 import { ANTICIPACION_MINIMA_DIAS, AvisoSinAnticipacion, PanelExtemporaneo, reglasAnticipacion } from "./RegistroExtemporaneo";
+import { AtenderEdicionModal, HistorialEdiciones, SolicitarEdicionModal } from "./EdicionSolicitud";
 import type {
   DatosVacaciones,
   DecisionRevision,
+  EdicionSolicitud,
   Empleado,
   EtapaAprobacion,
   PerfilUsuario,
@@ -30,6 +32,10 @@ interface RequestsViewProps {
   onObtenerRevisiones: (id: string) => Promise<RevisionSolicitud[]>;
   onCancelar?: (id: string, estado: "cancelada") => Promise<boolean>;
   onDelete?: (id: string) => Promise<boolean>;
+  // Flujo de edicion (017): el empleado la pide; el administrador la aplica o rechaza.
+  onSolicitarEdicion: (solicitudId: string, propuesta: { fechaInicio: string; fechaFin: string; fechaReintegro: string; motivo: string }) => Promise<boolean>;
+  onAplicarEdicion?: (edicionId: string, formulario: SolicitudFormulario, motivo: string) => Promise<boolean>;
+  onRechazarEdicion?: (edicionId: string, motivo: string) => Promise<boolean>;
 }
 
 const estiloUrgente = { background: "#fdecea", border: "1px solid #f3b8b3", color: "#b3261e", fontWeight: 700 } as const;
@@ -45,18 +51,6 @@ const NOMBRE_ETAPA: Record<EtapaAccionable, string> = {
 };
 
 const solicitudInicial: SolicitudFormulario = { empleadoId: "", fechaInicio: "", fechaFin: "", fechaReintegro: "", comentarios: "" };
-
-function desdeSolicitud(solicitud: SolicitudAusencia): SolicitudFormulario {
-  return {
-    id: solicitud.id,
-    empleadoId: solicitud.empleadoId,
-    fechaInicio: solicitud.fechaInicio,
-    fechaFin: solicitud.fechaFin,
-    fechaReintegro: solicitud.fechaReintegro ?? siguienteDiaHabil(solicitud.fechaFin),
-    comentarios: separarUrgencia(solicitud.comentarios).texto,
-    urgente: separarUrgencia(solicitud.comentarios).urgente,
-  };
-}
 
 // Etiqueta visible del estado: mientras esta pendiente, muestra ademas la
 // etapa del flujo (RRHH / Jefe inmediato / Mesa Directiva) que debe actuar; si
@@ -171,9 +165,10 @@ function DecisionModal({ solicitud, etapa, decision, onClose, onConfirm, actuali
   );
 }
 
-function DetailDrawer({ solicitud, empleado, onClose, onObtenerRevisiones }: {
+function DetailDrawer({ solicitud, empleado, ediciones, onClose, onObtenerRevisiones }: {
   solicitud: SolicitudAusencia;
   empleado: Empleado | undefined;
+  ediciones: EdicionSolicitud[];
   onClose: () => void;
   onObtenerRevisiones: (id: string) => Promise<RevisionSolicitud[]>;
 }) {
@@ -224,23 +219,30 @@ function DetailDrawer({ solicitud, empleado, onClose, onObtenerRevisiones }: {
             ))}
           </div>
         )}
+        <div className="form-section-title"><Pencil size={16} /><span>Historial de ediciones</span></div>
+        <HistorialEdiciones ediciones={ediciones} />
         <footer><button className="secondary-button" type="button" onClick={onClose} title="Cerrar">Cerrar</button></footer>
       </div>
     </div>
   );
 }
 
-export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar, onObtenerRevisiones, onCancelar, onDelete }: RequestsViewProps) {
+export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar, onObtenerRevisiones, onCancelar, onDelete, onSolicitarEdicion, onAplicarEdicion, onRechazarEdicion }: RequestsViewProps) {
   const [busqueda, setBusqueda] = useState("");
   const [estado, setEstado] = useState("");
   const [formulario, setFormulario] = useState<SolicitudFormulario | null>(null);
   const [decisionActiva, setDecisionActiva] = useState<{ solicitud: SolicitudAusencia; etapa: EtapaAccionable; decision: DecisionRevision } | null>(null);
   const [detalleActivo, setDetalleActivo] = useState<SolicitudAusencia | null>(null);
+  const [edicionActiva, setEdicionActiva] = useState<{ solicitud: SolicitudAusencia; edicion?: EdicionSolicitud } | null>(null);
 
+  const edicionPendienteDe = (solicitudId: string) => datos.ediciones.find((item) => item.solicitudId === solicitudId && item.estado === "pendiente");
   const solicitudes = useMemo(() => solicitudesVisibles(perfil, datos.solicitudes, datos.empleados)
-    .filter((solicitud) => !estado || solicitud.estado === estado)
+    .filter((solicitud) => !estado || (estado === "edicion"
+      ? datos.ediciones.some((item) => item.solicitudId === solicitud.id && item.estado === "pendiente")
+      : solicitud.estado === estado))
     .filter((solicitud) => solicitud.nombreEmpleado.toLowerCase().includes(busqueda.toLowerCase()))
-    .sort((a, b) => b.fechaInicio.localeCompare(a.fechaInicio)), [busqueda, datos.empleados, datos.solicitudes, estado, perfil]);
+    .sort((a, b) => b.fechaInicio.localeCompare(a.fechaInicio)), [busqueda, datos.ediciones, datos.empleados, datos.solicitudes, estado, perfil]);
+  const edicionesPorAtender = perfil?.rol === "administrador" ? datos.ediciones.filter((item) => item.estado === "pendiente").length : 0;
 
   const empleadoDe = (solicitud: SolicitudAusencia) => datos.empleados.find((item) => item.id === solicitud.empleadoId);
   const esAutoservicio = perfil?.rol === "empleado";
@@ -252,14 +254,13 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
     : datos.empleados.filter((emp) => emp.estado === "activo" || emp.id === formulario?.empleadoId);
   const empleadoElegido = datos.empleados.find((emp) => emp.id === formulario?.empleadoId);
 
-  const editando = Boolean(formulario?.id);
   const actualizar = (campo: keyof SolicitudFormulario, valor: string) => setFormulario((actual) => {
     if (!actual) return actual;
     const siguiente = { ...actual, [campo]: valor };
     if (campo === "fechaFin") siguiente.fechaReintegro = siguienteDiaHabil(siguiente.fechaFin);
     return siguiente;
   });
-  const reglas = reglasAnticipacion(formulario, perfil, editando);
+  const reglas = reglasAnticipacion(formulario, perfil, false);
   const { sinAnticipacion } = reglas;
   const guardar = async (evento: React.FormEvent) => {
     evento.preventDefault();
@@ -293,7 +294,8 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
               propias solicitudes (o, si es jefe inmediato, las de un puñado
               de reportes directos). */}
           {!esAutoservicio && <div className="search-field"><Search size={17} /><input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar empleado" /></div>}
-          <label className="compact-select"><span>Estado</span><Select value={estado} onChange={setEstado}><option value="">Todos</option><option value="planeada">Planeada</option><option value="pendiente">Pendiente</option><option value="aprobada">Aprobada</option><option value="rechazada">Rechazada</option><option value="cancelada">Cancelada</option></Select></label>
+          <label className="compact-select"><span>Estado</span><Select value={estado} onChange={setEstado}><option value="">Todos</option><option value="planeada">Planeada</option><option value="pendiente">Pendiente</option><option value="aprobada">Aprobada</option><option value="rechazada">Rechazada</option><option value="cancelada">Cancelada</option><option value="edicion">Con edición solicitada</option></Select></label>
+          {edicionesPorAtender > 0 && <button className="secondary-button" type="button" onClick={() => setEstado("edicion")} title="Ver las solicitudes con edición pendiente"><Pencil size={15} />{edicionesPorAtender} {edicionesPorAtender === 1 ? "edición por atender" : "ediciones por atender"}</button>}
         </header>
         <div className="responsive-table-wrap">
           <table className="data-table request-table">
@@ -303,8 +305,12 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
                 const empleado = empleadoDe(solicitud);
                 const { urgente, texto: comentarioVisible } = separarUrgencia(solicitud.comentarios);
                 const etapaAccionable = etapaRevisable(perfil, solicitud, datos.empleados);
-                const puedeEditar = Boolean(onCreate) && solicitud.etapaAprobacion === "rrhh" && ["planeada", "pendiente"].includes(solicitud.estado)
-                  && (perfil?.rol === "administrador" || (perfil?.rol === "empleado" && solicitud.empleadoId === perfil.empleadoId));
+                // Nadie edita directo: el dueño (o el administrador en su nombre)
+                // pide la edición y el administrador la atiende (017).
+                const edicionPendiente = edicionPendienteDe(solicitud.id);
+                const puedeAtender = Boolean(edicionPendiente && onAplicarEdicion && perfil?.rol === "administrador");
+                const puedePedirEdicion = !edicionPendiente && ["planeada", "pendiente", "aprobada"].includes(solicitud.estado)
+                  && (perfil?.rol === "administrador" || (Boolean(perfil?.empleadoId) && solicitud.empleadoId === perfil?.empleadoId));
                 return (
                   <tr key={solicitud.id} className="row-clickable" onDoubleClick={() => setDetalleActivo(solicitud)} title="Doble clic para ver detalle">
                     <td><div className="person-cell"><span className="avatar small" style={{ background: solicitud.colorEmpleado }}>{solicitud.nombreEmpleado.split(" ").slice(0, 2).map((p) => p[0]).join("")}</span><strong>{solicitud.nombreEmpleado}</strong></div></td>
@@ -312,7 +318,7 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
                     <td><span className="period-chip">{format(parseISO(solicitud.fechaInicio), "d MMM", { locale: es })}<span className="arrow">→</span>{format(parseISO(solicitud.fechaFin), "d MMM yyyy", { locale: es })}</span></td>
                     <td><span className="count-badge" title={`${solicitud.dias} día(s) solicitados`}>{solicitud.dias}</span></td>
                     <td><span className="count-chip">{empleado?.saldo.diasTomados ?? 0} días</span></td>
-                    <td><span className={`status-pill ${solicitud.estado}`}>{textoEstado(solicitud)}</span>{urgente && <EtiquetaUrgente />}</td>
+                    <td><span className={`status-pill ${solicitud.estado}`}>{textoEstado(solicitud)}</span>{urgente && <EtiquetaUrgente />}{edicionPendiente && <span className="status-pill pendiente" style={{ marginLeft: 6 }} title={`Edición solicitada: ${edicionPendiente.motivo}`}>✏️ Edición solicitada</span>}</td>
                     <td><span className="table-secondary truncate" style={{ maxWidth: 260, display: "inline-block" }} title={comentarioVisible || undefined}>{comentarioVisible || "—"}</span></td>
                     <td>
                       <div className="row-actions">
@@ -322,7 +328,8 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
                         </>}
                         {onCancelar && solicitud.estado === "aprobada" && <button className="text-button danger-text" type="button" disabled={actualizando} onClick={() => onCancelar(solicitud.id, "cancelada")} aria-label={`Cancelar solicitud de ${solicitud.nombreEmpleado}`} title="Cancelar solicitud">Cancelar</button>}
                         <button className="icon-button subtle" type="button" onClick={() => setDetalleActivo(solicitud)} aria-label={`Ver detalle de la solicitud de ${solicitud.nombreEmpleado}`} title="Ver detalle"><Eye size={15} /></button>
-                        {puedeEditar && <button className="icon-button subtle" type="button" disabled={actualizando} onClick={() => setFormulario(desdeSolicitud(solicitud))} aria-label={`Editar solicitud de ${solicitud.nombreEmpleado}`} title="Editar solicitud"><Pencil size={15} /></button>}
+                        {puedeAtender && <button className="icon-button approve" type="button" disabled={actualizando} onClick={() => setEdicionActiva({ solicitud, edicion: edicionPendiente })} aria-label={`Atender edición de ${solicitud.nombreEmpleado}`} title="Atender solicitud de edición"><Pencil size={15} /></button>}
+                        {puedePedirEdicion && <button className="icon-button subtle" type="button" disabled={actualizando} onClick={() => setEdicionActiva({ solicitud })} aria-label={`Solicitar edición de la solicitud de ${solicitud.nombreEmpleado}`} title={perfil?.rol === "administrador" && solicitud.empleadoId !== perfil.empleadoId ? "Registrar solicitud de edición en nombre del empleado" : "Solicitar edición"}><Pencil size={15} /></button>}
                         {onDelete && <button className="icon-button subtle danger" type="button" disabled={actualizando} onClick={() => eliminar(solicitud)} aria-label={`Eliminar solicitud de ${solicitud.nombreEmpleado}`} title="Eliminar solicitud"><Trash2 size={15} /></button>}
                       </div>
                     </td>
@@ -337,7 +344,7 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
       {formulario && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) setFormulario(null); }}>
           <form className="form-modal request-form" onSubmit={guardar}>
-            <header><div className="form-title-with-icon"><span className="icon-tile amber"><CalendarPlus size={18} /></span><div><span className="eyebrow">Calendario</span><h2>{editando ? "Editar solicitud" : "Nueva solicitud"}</h2></div></div><button className="icon-button" type="button" onClick={() => setFormulario(null)} aria-label="Cerrar" title="Cerrar"><X size={19} /></button></header>
+            <header><div className="form-title-with-icon"><span className="icon-tile amber"><CalendarPlus size={18} /></span><div><span className="eyebrow">Calendario</span><h2>Nueva solicitud</h2></div></div><button className="icon-button" type="button" onClick={() => setFormulario(null)} aria-label="Cerrar" title="Cerrar"><X size={19} /></button></header>
             <div className="form-grid two-columns">
               {esAutoservicio ? (
                 <div className="span-two stat-grid">
@@ -346,7 +353,7 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
                 </div>
               ) : (
                 <>
-                  <label className="span-two"><span>Empleado *</span><Select disabled={editando} value={formulario.empleadoId} onChange={(valor) => actualizar("empleadoId", valor)}><option value="">Seleccionar empleado</option>{opcionesEmpleadoFormulario.map((emp) => <option value={emp.id} key={emp.id}>{emp.nombre}</option>)}</Select></label>
+                  <label className="span-two"><span>Empleado *</span><Select value={formulario.empleadoId} onChange={(valor) => actualizar("empleadoId", valor)}><option value="">Seleccionar empleado</option>{opcionesEmpleadoFormulario.map((emp) => <option value={emp.id} key={emp.id}>{emp.nombre}</option>)}</Select></label>
                   {empleadoElegido && (
                     <div className="span-two stat-grid">
                       <div className="mini-stat"><span>Disponibles</span><strong>{empleadoElegido.saldo.diasDisponibles}</strong></div>
@@ -363,7 +370,7 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
             </div>
             <PanelExtemporaneo formulario={formulario} reglas={reglas} onChange={(cambios) => setFormulario((actual) => actual && { ...actual, ...cambios })} />
             {sinAnticipacion && <AvisoSinAnticipacion />}
-            <p className="empty-note">{editando ? "Esta solicitud sigue en RRHH; en cuanto avance de etapa ya no podrá editarse." : reglas.notaFlujo}</p>
+            <p className="empty-note">{reglas.notaFlujo}</p>
             <footer><button className="secondary-button" type="button" onClick={() => setFormulario(null)} title="Cancelar">Cancelar</button><button className="primary-button" type="submit" disabled={actualizando || sinAnticipacion} title={actualizando ? "Guardando…" : "Guardar solicitud"}>{actualizando ? "Guardando…" : "Guardar solicitud"}</button></footer>
           </form>
         </div>
@@ -384,10 +391,30 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
         <DetailDrawer
           solicitud={detalleActivo}
           empleado={empleadoDe(detalleActivo)}
+          ediciones={datos.ediciones.filter((item) => item.solicitudId === detalleActivo.id)}
           onClose={() => setDetalleActivo(null)}
           onObtenerRevisiones={onObtenerRevisiones}
         />
       )}
+
+      {edicionActiva && (edicionActiva.edicion && onAplicarEdicion && onRechazarEdicion ? (
+        <AtenderEdicionModal
+          edicion={edicionActiva.edicion}
+          solicitud={edicionActiva.solicitud}
+          empleado={empleadoDe(edicionActiva.solicitud)}
+          actualizando={actualizando}
+          onClose={() => setEdicionActiva(null)}
+          onAplicar={(formularioEdicion, motivo) => onAplicarEdicion(edicionActiva.edicion!.id, formularioEdicion, motivo)}
+          onRechazar={(motivo) => onRechazarEdicion(edicionActiva.edicion!.id, motivo)}
+        />
+      ) : (
+        <SolicitarEdicionModal
+          solicitud={edicionActiva.solicitud}
+          actualizando={actualizando}
+          onClose={() => setEdicionActiva(null)}
+          onConfirm={(propuesta) => onSolicitarEdicion(edicionActiva.solicitud.id, propuesta)}
+        />
+      ))}
     </div>
   );
 }

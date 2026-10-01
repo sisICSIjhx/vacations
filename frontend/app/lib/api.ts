@@ -51,7 +51,7 @@ export function crearAcceso(datos: { empleadoId: string; correo: string; rol: Ro
   return solicitar<AccesoCreado>("/accesos", { method: "POST", body: JSON.stringify(datos) });
 }
 
-export function actualizarAcceso(usuarioId: string, cambios: { rol?: RolUsuario; activo?: boolean; empleadoId?: string; permitirCambioContrasena?: boolean; forzarCambioContrasena?: boolean }): Promise<{ actualizado: boolean }> {
+export function actualizarAcceso(usuarioId: string, cambios: { rol?: RolUsuario; activo?: boolean; empleadoId?: string; correo?: string; permitirCambioContrasena?: boolean; forzarCambioContrasena?: boolean }): Promise<{ actualizado: boolean }> {
   return solicitar<{ actualizado: boolean }>(`/accesos/${usuarioId}`, { method: "PATCH", body: JSON.stringify(cambios) });
 }
 
