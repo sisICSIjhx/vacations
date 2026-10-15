@@ -1,0 +1,33 @@
+schema: spec-driven
+
+context: |
+  Language: Spanish
+  All artifacts must be written in Spanish.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+  Producto: gestión de vacaciones, solicitudes, aprobaciones, saldos y accesos.
+  Stack: Next.js 16, React 19, TypeScript; API NestJS 11; Supabase Auth y PostgreSQL con RLS.
+  Orientación: docs/CONTEXTO_PROYECTO.md. Decisiones anteriores: buscar por tema en HISTORIAL.md.
+  Política adaptativa en AGENTS.md: menores directos; moderados con plan breve y OpenSpec según riesgo; mayores o críticos con OpenSpec, salvo indicación explícita del usuario.
+  Consultar solo la capacidad y los módulos afectados; no cargar todos los documentos.
+  Mantener claves privilegiadas en servidor y preservar cambios manuales.
+rules:
+  proposal:
+    - Explicar problema, resultado esperado, alcance y capacidades afectadas de forma breve.
+    - Distinguir comportamiento actual comprobado de comportamiento propuesto.
+  specs:
+    - Usar encabezados estructurales de OpenSpec en inglés, requisitos SHALL y escenarios WHEN/THEN; contenido en español.
+    - Incluir límites, errores y permisos cuando sean relevantes al cambio.
+  design:
+    - Referenciar rutas existentes y registrar decisiones con su motivo; evitar duplicar código en la documentación.
+    - Para cambios de datos o permisos, identificar migraciones e impacto en frontend, API y RLS.
+  tasks:
+    - Separar implementación y validación; usar casillas verificables y no declarar pruebas sin ejecutarlas.
+    - Incluir actualización del historial y del contexto breve solo si corresponde.
+operations:
+  apply:
+    guidance:
+      - Aprovechar la autorización del usuario ya disponible; usar OpenSpec no añade por sí mismo otra aprobación. Si surge una acción crítica sin autorización suficiente, preparar el resultado revisable y solicitar solo la decisión que falta.
+      - Usar los comandos de validación del módulo indicados en AGENTS.md; no ejecutar suites de aplicación para cambios solo documentales.
+  archive:
+    guidance:
+      - Sincronizar specs y registrar resultados reales y limitaciones en HISTORIAL.md.

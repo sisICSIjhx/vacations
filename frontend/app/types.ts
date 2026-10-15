@@ -63,6 +63,8 @@ export interface SaldoVacaciones {
   diasPlaneados: number;
   diasPendientes: number;
   fechaCorte: string;
+  // false cuando el empleado aún no tiene saldo registrado en el año.
+  registrado?: boolean;
 }
 
 export interface Empleado {
@@ -109,6 +111,8 @@ export interface SolicitudAusencia {
   origen: "administrador" | "csv" | "formulario" | "empleado" | "integracion";
   // Capturada por un administrador fuera de plazo: exenta de la anticipación mínima.
   registroExtemporaneo?: boolean;
+  // Días cancelados de una solicitud aprobada (022): motivo enviado al empleado.
+  cancelacion?: { motivo: string; canceladoPor?: string; canceladoEn?: string };
 }
 
 // Solicitud de edicion de una solicitud de vacaciones y su bitacora (017):
@@ -186,6 +190,8 @@ export interface EmpleadoFormulario {
   diasPorDerecho: number;
   diasAcumulados: number;
   diasDisponibles: number;
+  // Sin saldo en el año: disponibles se calcula como derecho + acumulados.
+  saldoNuevo?: boolean;
 }
 
 export interface SolicitudFormulario {

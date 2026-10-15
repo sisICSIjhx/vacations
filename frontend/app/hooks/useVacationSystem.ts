@@ -6,6 +6,7 @@ import { datosDemostracion, revisionesDemostracion } from "../data/demo";
 import { obtenerSupabase, supabaseConfigurado } from "../lib/supabase";
 import { comentarioConUrgencia, separarUrgencia } from "../lib/urgente";
 import { diasVacaciones, siguienteDiaHabil } from "../lib/diaHabil";
+import { diasPorDerechoEnAnio } from "../lib/antiguedad";
 import type {
   Catalogo,
   DatosVacaciones,
@@ -109,6 +110,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       categoriasResultado,
       tiposResultado,
       edicionesResultado,
+      cancelacionesResultado,
     ] = await Promise.all([
       db.from("empleados").select("*").is("eliminado_en", null).order("nombre_completo"),
       db.from("v_saldo_vacaciones_empleado").select("*").eq("anio_asignacion", anio),
@@ -124,6 +126,8 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       db.from("tipos_ausencia").select("id,codigo,nombre,color").eq("activo", true).is("eliminado_en", null).order("nombre"),
       // RLS: cada quien ve las ediciones de las solicitudes que puede ver (017)
       db.from("solicitudes_edicion").select("*").order("solicitado_en", { ascending: false }),
+      // Motivo de los días cancelados (022); la vista de días no lo incluye.
+      db.from("solicitudes_ausencia").select("id,motivo_cancelacion,cancelado_por_nombre,cancelado_en").not("motivo_cancelacion", "is", null).lte("fecha_inicio", hasta).gte("fecha_fin", desde),
     ]);
 
     const resultados = [
@@ -137,6 +141,8 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       tiposResultado,
       edicionesResultado,
     ];
+    // cancelacionesResultado no bloquea la carga: sin la migración 022 la
+    // columna no existe y solo se omite el motivo.
     const primerError = resultados.find((resultado) => resultado.error)?.error;
     if (primerError) {
       setError(primerError.message);
@@ -189,10 +195,16 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
           diasPlaneados: Number(saldo?.dias_planeados ?? 0),
           diasPendientes: Number(saldo?.dias_pendientes ?? 0),
           fechaCorte: String(saldo?.fecha_corte_saldo ?? `${anio}-01-01`),
+          registrado: Boolean(saldo),
         },
       };
     });
 
+    const cancelacionPorId = new Map((cancelacionesResultado.error ? [] : cancelacionesResultado.data ?? []).map((fila: Record<string, unknown>) => [String(fila.id), {
+      motivo: String(fila.motivo_cancelacion),
+      canceladoPor: fila.cancelado_por_nombre ? String(fila.cancelado_por_nombre) : undefined,
+      canceladoEn: fila.cancelado_en ? String(fila.cancelado_en) : undefined,
+    }]));
     const solicitudesPorId = new Map<string, SolicitudAusencia>();
     for (const fila of calendarioResultado.data ?? []) {
       const id = String(fila.solicitud_ausencia_id);
@@ -216,6 +228,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
           comentarios: fila.comentarios ? String(fila.comentarios) : undefined,
           origen: fila.origen as SolicitudAusencia["origen"],
           registroExtemporaneo: fila.registro_extemporaneo === true,
+          cancelacion: cancelacionPorId.get(id),
         });
       } else {
         actual.dias += Number(fila.dias_descontados ?? 0);
@@ -288,6 +301,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
             diasPlaneados: existente?.saldo.diasPlaneados ?? 0,
             diasPendientes: existente?.saldo.diasPendientes ?? 0,
             fechaCorte: new Date().toISOString().slice(0, 10),
+            registrado: true,
           },
         };
         return {
@@ -633,6 +647,38 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     return !rpcError;
   }, [cargarDesdeSupabase]);
 
+  // Cancela los días de una solicitud aprobada sin eliminarla (022): queda
+  // 'cancelada' en el historial, los días vuelven al saldo y el empleado recibe
+  // el motivo por correo.
+  const cancelarDiasSolicitud = useCallback(async (id: string, motivo: string) => {
+    setActualizando(true);
+    setError(null);
+    const supabase = obtenerSupabase();
+    if (!supabase) {
+      setDatos((actual) => {
+        const solicitud = actual.solicitudes.find((item) => item.id === id);
+        if (!solicitud || solicitud.estado !== "aprobada") return actual;
+        return {
+          ...actual,
+          solicitudes: actual.solicitudes.map((item) => item.id === id ? { ...item, estado: "cancelada", cancelacion: { motivo: motivo.trim(), canceladoPor: "Administrador", canceladoEn: new Date().toISOString() } } : item),
+          empleados: actual.empleados.map((empleado) => empleado.id === solicitud.empleadoId
+            ? { ...empleado, saldo: { ...empleado.saldo, diasDisponibles: empleado.saldo.diasDisponibles + solicitud.dias, diasTomados: Math.max(empleado.saldo.diasTomados - solicitud.dias, 0) } }
+            : empleado),
+        };
+      });
+      setActualizando(false);
+      return true;
+    }
+    const { error: rpcError } = await supabase.schema("vacaciones").rpc("cancelar_dias_solicitud", {
+      p_solicitud_id: id,
+      p_motivo: motivo.trim(),
+    });
+    if (rpcError) setError(rpcError.message);
+    else await cargarDesdeSupabase();
+    setActualizando(false);
+    return !rpcError;
+  }, [cargarDesdeSupabase]);
+
   const cambiarEstadoEmpleado = useCallback(async (id: string, estado: "activo" | "inactivo") => {
     setActualizando(true);
     setError(null);
@@ -888,6 +934,37 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     return !rpcError;
   }, [cargarDesdeSupabase]);
 
+  // Crea el saldo del año para quien no lo tenga: días por derecho según la
+  // LFT y acumulados = disponibles del año anterior (migración 023). Devuelve
+  // cuántos saldos se crearon o null si falló.
+  const generarSaldosAnio = useCallback(async (): Promise<number | null> => {
+    setActualizando(true);
+    setError(null);
+    const supabase = obtenerSupabase();
+    if (!supabase) {
+      const generar = (empleado: Empleado) => empleado.saldo.registrado === false && empleado.estado === "activo"
+        ? diasPorDerechoEnAnio(empleado.fechaIngreso, anio)
+        : undefined;
+      const creados = datos.empleados.filter((empleado) => generar(empleado) !== undefined).length;
+      setDatos((actual) => ({
+        ...actual,
+        empleados: actual.empleados.map((empleado) => {
+          const derecho = generar(empleado);
+          return derecho === undefined
+            ? empleado
+            : { ...empleado, saldo: { ...empleado.saldo, anio, diasPorDerecho: derecho, diasAcumulados: 0, diasDisponibles: derecho, registrado: true } };
+        }),
+      }));
+      setActualizando(false);
+      return creados;
+    }
+    const { data, error: rpcError } = await supabase.schema("vacaciones").rpc("generar_saldos_anio", { p_anio: anio });
+    if (rpcError) setError(rpcError.message);
+    else await cargarDesdeSupabase();
+    setActualizando(false);
+    return rpcError ? null : Number(data ?? 0);
+  }, [anio, cargarDesdeSupabase, datos.empleados]);
+
   return useMemo(() => ({
     datos,
     cargando,
@@ -898,9 +975,11 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     guardarEmpleado,
     cambiarEstadoEmpleado,
     eliminarEmpleado,
+    generarSaldosAnio,
     guardarSolicitud,
     eliminarSolicitud,
     cambiarEstadoSolicitud,
+    cancelarDiasSolicitud,
     revisarSolicitud,
     obtenerRevisiones,
     solicitarEdicion,
@@ -910,5 +989,5 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     eliminarCatalogo,
     guardarFestivo,
     eliminarFestivo,
-  }), [actualizando, cambiarEstadoEmpleado, cambiarEstadoSolicitud, cargando, cargarDesdeSupabase, datos, eliminarCatalogo, eliminarEmpleado, eliminarFestivo, eliminarSolicitud, error, guardarCatalogo, guardarEmpleado, guardarFestivo, guardarSolicitud, obtenerRevisiones, rechazarEdicion, revisarSolicitud, solicitarEdicion, aplicarEdicion]);
+  }), [actualizando, cambiarEstadoEmpleado, cambiarEstadoSolicitud, cancelarDiasSolicitud, cargando, cargarDesdeSupabase, datos, eliminarCatalogo, eliminarEmpleado, eliminarFestivo, eliminarSolicitud, error, generarSaldosAnio, guardarCatalogo, guardarEmpleado, guardarFestivo, guardarSolicitud, obtenerRevisiones, rechazarEdicion, revisarSolicitud, solicitarEdicion, aplicarEdicion]);
 }

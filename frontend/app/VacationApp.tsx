@@ -395,7 +395,7 @@ export default function VacationApp() {
         <main className="app-main">
           {vistaEfectiva === "resumen" && <DashboardView datos={sistema.datos} onNavigate={setVista} />}
           {vistaEfectiva === "calendario" && <div className="calendar-page page-stack"><section className="calendar-toolbar"><div><h1>Vacaciones del equipo</h1><p>Identifica ausencias simultáneas y consulta el detalle de cada día.</p></div><div className="calendar-actions"><div className="year-switch"><button type="button" onClick={() => setAnio((actual) => actual - 1)} aria-label="Año anterior" title="Año anterior"><ChevronLeft size={17} /></button><strong>{anio}</strong><button type="button" onClick={() => setAnio((actual) => actual + 1)} aria-label="Año siguiente" title="Año siguiente"><ChevronRight size={17} /></button></div>{(perfil?.rol === "administrador" || perfil?.rol === "empleado") && <button className="primary-button" type="button" disabled={sinEmpleadoVinculado} onClick={() => setCrearSolicitud(true)} title={sinEmpleadoVinculado ? "Tu cuenta no está vinculada a un empleado; contacta a RRHH o Administración" : "Crear solicitud"}><Plus size={17} />Crear solicitud</button>}</div></section><div className="calendar-content"><EmployeeFocus datos={sistema.datos} filtros={filtros} empleadoSeleccionado={empleadoSeleccionado} perfil={perfil} onChange={setFiltros} /><section className="calendar-surface content-card">{sistema.cargando ? <div className="calendar-loading"><span className="loader" /><p>Cargando calendario…</p></div> : <YearCalendar anio={anio} solicitudes={solicitudesFiltradas} diasFestivos={festivosDelAnio(sistema.datos.diasFestivos, anio)} compacto={perfil?.rol === "empleado"} />}</section></div></div>}
-          {vistaEfectiva === "personal" && puedeGestionar && <EmployeesView datos={sistema.datos} actualizando={sistema.actualizando} onSave={sistema.guardarEmpleado} onToggleEstado={sistema.cambiarEstadoEmpleado} onDelete={esAdministrador ? sistema.eliminarEmpleado : undefined} puedeGestionarAccesos={esAdministrador} />}
+          {vistaEfectiva === "personal" && puedeGestionar && <EmployeesView datos={sistema.datos} anio={anio} actualizando={sistema.actualizando} onGenerarSaldos={sistema.generarSaldosAnio} onSave={sistema.guardarEmpleado} onToggleEstado={sistema.cambiarEstadoEmpleado} onDelete={esAdministrador ? sistema.eliminarEmpleado : undefined} puedeGestionarAccesos={esAdministrador} />}
           {vistaEfectiva === "solicitudes" && (
             <RequestsView
               datos={sistema.datos}
@@ -404,7 +404,7 @@ export default function VacationApp() {
               onCreate={perfil?.rol === "administrador" || perfil?.rol === "empleado" ? sistema.guardarSolicitud : undefined}
               onRevisar={sistema.revisarSolicitud}
               onObtenerRevisiones={sistema.obtenerRevisiones}
-              onCancelar={perfil?.rol === "administrador" ? sistema.cambiarEstadoSolicitud : undefined}
+              onCancelarDias={perfil?.rol === "administrador" ? sistema.cancelarDiasSolicitud : undefined}
               onDelete={perfil?.rol === "administrador" ? sistema.eliminarSolicitud : undefined}
               onSolicitarEdicion={sistema.solicitarEdicion}
               onAplicarEdicion={perfil?.rol === "administrador" ? sistema.aplicarEdicion : undefined}

@@ -257,6 +257,8 @@ p { color: var(--muted); line-height: 1.55; }
 .page-stack { display: grid; gap: 22px; }
 .page-title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .page-title-row p, .calendar-toolbar p { margin: 0; }
+.title-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.form-hint { grid-column: 1 / -1; margin: -4px 0 0; color: var(--muted); font-size: 11px; }
 
 /* Acceso */
 .login-page { min-height: 100vh; display: grid; grid-template-columns: minmax(380px, .92fr) minmax(480px, 1.08fr); background: var(--surface); }
@@ -575,6 +577,20 @@ p { color: var(--muted); line-height: 1.55; }
 .form-title-with-icon { display: flex; gap: 11px; align-items: center; }
 .form-title-with-icon h2 { margin: 0; }
 .form-section-title { grid-column: 1 / -1; margin: 5px 0 -4px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink); text-transform: uppercase; letter-spacing: .08em; }
+.employee-balance { margin-top: 22px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-soft); }
+.employee-balance-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.employee-balance-header h3 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink); font-size: 15px; font-weight: 700; line-height: 1.4; }
+.employee-balance-header svg { flex: 0 0 auto; color: var(--navy); }
+.employee-balance-year { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--navy); font-size: 12px; font-weight: 700; }
+.employee-balance .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.employee-balance label { min-width: 0; }
+.employee-balance label > span { color: var(--ink); }
+.employee-balance input { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.employee-balance-help { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.65; }
+@media (max-width: 600px) {
+  .employee-balance { padding: 14px; }
+  .employee-balance .form-grid { grid-template-columns: 1fr; }
+}
 .password-input { position: relative; }
 .password-input input { padding-right: 44px; }
 .password-input button { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--muted); }

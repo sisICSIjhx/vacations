@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarPlus, Check, CircleX, Clock, Eye, Pencil, Plus, Search, Trash2, TriangleAlert, X } from "lucide-react";
+import { CalendarPlus, Check, CircleX, Clock, Eye, Pencil, Plus, Search, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
 import { Select } from "./Select";
 import { separarUrgencia } from "../lib/urgente";
 import { siguienteDiaHabil } from "../lib/diaHabil";
@@ -30,7 +30,8 @@ interface RequestsViewProps {
   onCreate?: (formulario: SolicitudFormulario) => Promise<boolean>;
   onRevisar: (id: string, etapa: EtapaAccionable, decision: DecisionRevision, comentario?: string) => Promise<boolean>;
   onObtenerRevisiones: (id: string) => Promise<RevisionSolicitud[]>;
-  onCancelar?: (id: string, estado: "cancelada") => Promise<boolean>;
+  // Cancela los días de una aprobada (022): los reintegra y avisa al empleado con el motivo.
+  onCancelarDias?: (id: string, motivo: string) => Promise<boolean>;
   onDelete?: (id: string) => Promise<boolean>;
   // Flujo de edicion (017): el empleado la pide; el administrador la aplica o rechaza.
   onSolicitarEdicion: (solicitudId: string, propuesta: { fechaInicio: string; fechaFin: string; fechaReintegro: string; motivo: string }) => Promise<boolean>;
@@ -165,6 +166,44 @@ function DecisionModal({ solicitud, etapa, decision, onClose, onConfirm, actuali
   );
 }
 
+// Cancelar días conserva la solicitud en el historial (estado "cancelada") y
+// reintegra sus días; el motivo es obligatorio y se envía al empleado.
+function CancelarDiasModal({ solicitud, onClose, onConfirm, actualizando }: {
+  solicitud: SolicitudAusencia;
+  onClose: () => void;
+  onConfirm: (motivo: string) => Promise<boolean>;
+  actualizando: boolean;
+}) {
+  const [motivo, setMotivo] = useState("");
+  const faltaMotivo = motivo.trim() === "";
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) onClose(); }}>
+      <form className="form-modal" onSubmit={(evento) => { evento.preventDefault(); if (!faltaMotivo) void onConfirm(motivo); }}>
+        <header>
+          <div className="form-title-with-icon">
+            <span className="icon-tile red"><Undo2 size={18} /></span>
+            <div><span className="eyebrow">Solicitud aprobada</span><h2>Cancelar días de vacaciones</h2></div>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar" title="Cerrar"><X size={19} /></button>
+        </header>
+        <p className="empty-note">
+          {solicitud.nombreEmpleado} · {format(parseISO(solicitud.fechaInicio), "d MMM", { locale: es })} — {format(parseISO(solicitud.fechaFin), "d MMM yyyy", { locale: es })} · {solicitud.dias} día(s)
+        </p>
+        <div className="inline-alert">
+          La solicitud se conservará en el historial como <strong>cancelada</strong> y se reintegrarán {solicitud.dias} día(s) a su saldo disponible. El empleado recibirá un correo con el motivo como constancia.
+        </div>
+        <div className="form-grid">
+          <label><span>Motivo de la cancelación (obligatorio, se enviará al empleado por correo)</span><textarea rows={3} required value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Explica por qué no se utilizó el periodo vacacional" /></label>
+        </div>
+        <footer>
+          <button className="secondary-button" type="button" onClick={onClose} title="Volver">Volver</button>
+          <button className="primary-button danger-button" type="submit" disabled={actualizando || faltaMotivo} title={actualizando ? "Guardando…" : "Cancelar días y reintegrar"}>{actualizando ? "Guardando…" : "Cancelar días y reintegrar"}</button>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
 function DetailDrawer({ solicitud, empleado, ediciones, onClose, onObtenerRevisiones }: {
   solicitud: SolicitudAusencia;
   empleado: Empleado | undefined;
@@ -199,6 +238,7 @@ function DetailDrawer({ solicitud, empleado, ediciones, onClose, onObtenerRevisi
           <label><span>Estado actual</span><span className={`status-pill ${solicitud.estado}`} style={{ width: "fit-content" }}>{textoEstado(solicitud)}</span></label>
         </div>
         {solicitud.comentarios && <div className="form-grid"><label><span>{separarUrgencia(solicitud.comentarios).urgente ? <>Motivo de la urgencia <EtiquetaUrgente /></> : "Comentario del empleado"}</span><p className="empty-note" style={{ textAlign: "left" }}>{separarUrgencia(solicitud.comentarios).texto || "—"}</p></label></div>}
+        {solicitud.cancelacion && <div className="form-grid"><label><span>Días cancelados y reintegrados{solicitud.cancelacion.canceladoEn ? ` el ${format(parseISO(solicitud.cancelacion.canceladoEn), "d MMM yyyy", { locale: es })}` : ""}{solicitud.cancelacion.canceladoPor ? ` · ${solicitud.cancelacion.canceladoPor}` : ""}</span><p className="empty-note" style={{ textAlign: "left" }}>{solicitud.cancelacion.motivo}</p></label></div>}
 
         <div className="form-section-title"><Clock size={16} /><span>Historial de aprobaciones</span></div>
         {revisiones === null ? (
@@ -227,13 +267,14 @@ function DetailDrawer({ solicitud, empleado, ediciones, onClose, onObtenerRevisi
   );
 }
 
-export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar, onObtenerRevisiones, onCancelar, onDelete, onSolicitarEdicion, onAplicarEdicion, onRechazarEdicion }: RequestsViewProps) {
+export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar, onObtenerRevisiones, onCancelarDias, onDelete, onSolicitarEdicion, onAplicarEdicion, onRechazarEdicion }: RequestsViewProps) {
   const [busqueda, setBusqueda] = useState("");
   const [estado, setEstado] = useState("");
   const [formulario, setFormulario] = useState<SolicitudFormulario | null>(null);
   const [decisionActiva, setDecisionActiva] = useState<{ solicitud: SolicitudAusencia; etapa: EtapaAccionable; decision: DecisionRevision } | null>(null);
   const [detalleActivo, setDetalleActivo] = useState<SolicitudAusencia | null>(null);
   const [edicionActiva, setEdicionActiva] = useState<{ solicitud: SolicitudAusencia; edicion?: EdicionSolicitud } | null>(null);
+  const [cancelacionActiva, setCancelacionActiva] = useState<SolicitudAusencia | null>(null);
 
   const edicionPendienteDe = (solicitudId: string) => datos.ediciones.find((item) => item.solicitudId === solicitudId && item.estado === "pendiente");
   const solicitudes = useMemo(() => solicitudesVisibles(perfil, datos.solicitudes, datos.empleados)
@@ -270,10 +311,18 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
   };
   const eliminar = (solicitud: SolicitudAusencia) => {
     if (!onDelete) return;
+    // Eliminar una aprobada conserva sus días como tomados (022); para
+    // reintegrarlos se usa "Cancelar días", que deja historial y avisa.
     const mensaje = solicitud.estado === "aprobada"
-      ? `¿Eliminar la solicitud de ${solicitud.nombreEmpleado}? Los días se reintegrarán a su saldo disponible.`
+      ? `¿Eliminar la solicitud de ${solicitud.nombreEmpleado}? Sus ${solicitud.dias} día(s) seguirán contando como tomados y NO se reintegrarán al saldo. Si no utilizó el periodo, usa «Cancelar días».`
       : `¿Eliminar la solicitud de ${solicitud.nombreEmpleado}?`;
     if (window.confirm(mensaje)) void onDelete(solicitud.id);
+  };
+  const confirmarCancelacion = async (motivo: string) => {
+    if (!cancelacionActiva || !onCancelarDias) return false;
+    const correcto = await onCancelarDias(cancelacionActiva.id, motivo);
+    if (correcto) setCancelacionActiva(null);
+    return correcto;
   };
   const confirmarDecision = async (comentario: string) => {
     if (!decisionActiva) return false;
@@ -318,7 +367,7 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
                     <td><span className="period-chip">{format(parseISO(solicitud.fechaInicio), "d MMM", { locale: es })}<span className="arrow">→</span>{format(parseISO(solicitud.fechaFin), "d MMM yyyy", { locale: es })}</span></td>
                     <td><span className="count-badge" title={`${solicitud.dias} día(s) solicitados`}>{solicitud.dias}</span></td>
                     <td><span className="count-chip">{empleado?.saldo.diasTomados ?? 0} días</span></td>
-                    <td><span className={`status-pill ${solicitud.estado}`}>{textoEstado(solicitud)}</span>{urgente && <EtiquetaUrgente />}{edicionPendiente && <span className="status-pill pendiente" style={{ marginLeft: 6 }} title={`Edición solicitada: ${edicionPendiente.motivo}`}>✏️ Edición solicitada</span>}</td>
+                    <td><span className={`status-pill ${solicitud.estado}`} title={solicitud.cancelacion ? `Días reintegrados. Motivo: ${solicitud.cancelacion.motivo}` : undefined}>{textoEstado(solicitud)}</span>{urgente && <EtiquetaUrgente />}{edicionPendiente && <span className="status-pill pendiente" style={{ marginLeft: 6 }} title={`Edición solicitada: ${edicionPendiente.motivo}`}>✏️ Edición solicitada</span>}</td>
                     <td><span className="table-secondary truncate" style={{ maxWidth: 260, display: "inline-block" }} title={comentarioVisible || undefined}>{comentarioVisible || "—"}</span></td>
                     <td>
                       <div className="row-actions">
@@ -326,7 +375,7 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
                           <button className="icon-button approve" type="button" disabled={actualizando} onClick={() => setDecisionActiva({ solicitud, etapa: etapaAccionable, decision: "aprobado" })} aria-label="Aprobar" title="Aprobar"><Check size={16} /></button>
                           <button className="icon-button reject" type="button" disabled={actualizando} onClick={() => setDecisionActiva({ solicitud, etapa: etapaAccionable, decision: "rechazado" })} aria-label="Rechazar" title="Rechazar"><CircleX size={16} /></button>
                         </>}
-                        {onCancelar && solicitud.estado === "aprobada" && <button className="text-button danger-text" type="button" disabled={actualizando} onClick={() => onCancelar(solicitud.id, "cancelada")} aria-label={`Cancelar solicitud de ${solicitud.nombreEmpleado}`} title="Cancelar solicitud">Cancelar</button>}
+                        {onCancelarDias && solicitud.estado === "aprobada" && <button className="text-button danger-text" type="button" disabled={actualizando} onClick={() => setCancelacionActiva(solicitud)} aria-label={`Cancelar días de vacaciones de ${solicitud.nombreEmpleado}`} title="Cancelar días: conserva la solicitud y reintegra los días al saldo">Cancelar días</button>}
                         <button className="icon-button subtle" type="button" onClick={() => setDetalleActivo(solicitud)} aria-label={`Ver detalle de la solicitud de ${solicitud.nombreEmpleado}`} title="Ver detalle"><Eye size={15} /></button>
                         {puedeAtender && <button className="icon-button approve" type="button" disabled={actualizando} onClick={() => setEdicionActiva({ solicitud, edicion: edicionPendiente })} aria-label={`Atender edición de ${solicitud.nombreEmpleado}`} title="Atender solicitud de edición"><Pencil size={15} /></button>}
                         {puedePedirEdicion && <button className="icon-button subtle" type="button" disabled={actualizando} onClick={() => setEdicionActiva({ solicitud })} aria-label={`Solicitar edición de la solicitud de ${solicitud.nombreEmpleado}`} title={perfil?.rol === "administrador" && solicitud.empleadoId !== perfil.empleadoId ? "Registrar solicitud de edición en nombre del empleado" : "Solicitar edición"}><Pencil size={15} /></button>}
@@ -384,6 +433,15 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
           actualizando={actualizando}
           onClose={() => setDecisionActiva(null)}
           onConfirm={confirmarDecision}
+        />
+      )}
+
+      {cancelacionActiva && (
+        <CancelarDiasModal
+          solicitud={cancelacionActiva}
+          actualizando={actualizando}
+          onClose={() => setCancelacionActiva(null)}
+          onConfirm={confirmarCancelacion}
         />
       )}
 

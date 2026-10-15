@@ -11,3 +11,9 @@ api/.env*
 *.log
 .devserver.*
 
+# Herramientas de especificación y caché local
+/node_modules/
+/.cache/
+/.codegraph/
+
+/.claude/settings.local.json
