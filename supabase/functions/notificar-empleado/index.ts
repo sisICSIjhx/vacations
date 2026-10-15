@@ -9,7 +9,9 @@
 //
 // La invoca vacaciones.enviar_correo_empleado() (pg_net), definida en
 // 010_avisos_empleado_y_recordatorios.sql. El payload ya trae todos los datos;
-// esta funcion no consulta la base. El aviso al grupo de WhatsApp lo hace la
+// esta funcion no consulta la base. Desde 020 incluye los mismos comentarios
+// que el aviso de WhatsApp: los del empleado en el acuse y los de cada etapa
+// de revision en la resolucion final. El aviso al grupo de WhatsApp lo hace la
 // Edge Function "notificar" (008), no esta.
 //
 // Diseno: sistema de diseno "ICSI Oil & Gas" (azul marino/azul medio, Arial,
@@ -40,6 +42,10 @@ interface Payload {
   fecha_reintegro: string | null
   dias: number
   revision: { etapa: Etapa; decision: string; comentario: string | null } | null
+  // Comentarios del empleado al registrar la solicitud (020)
+  comentarios?: string | null
+  // Solo en aprobada/rechazada: las revisiones del ciclo actual, en orden (020)
+  revisiones?: { etapa: Etapa; decision: string; revisor: string | null; comentario: string | null }[]
   // Solo en los eventos edicion_* (vacaciones.enviar_correo_edicion)
   edicion?: {
     motivo: string
@@ -156,6 +162,34 @@ function panelMotivo(motivo: string, estado: Estado, etiqueta = 'Motivo'): strin
     </table>`
 }
 
+const NOMBRE_ETAPA: Record<Etapa, string> = {
+  rrhh: 'RRHH',
+  jefe_inmediato: 'Jefe inmediato',
+  mesa_directiva: 'Mesa Directiva',
+}
+
+// Los mismos comentarios de revision que llegan al grupo de WhatsApp (015),
+// uno por etapa con quien reviso. Se omite el de `excluir` (el motivo del
+// rechazo ya tiene su propio panel). Sin comentarios no se muestra nada.
+function panelComentariosRevision(p: Payload, excluir: Etapa | null = null): string {
+  const filas = (p.revisiones ?? [])
+    .filter((r) => r.comentario?.trim() && !(excluir && r.etapa === excluir && r.decision === 'rechazado'))
+    .map((r, i) => `
+      <tr><td style="padding:${i === 0 ? '0' : '14px'} 0 0">
+        <div style="${estiloEtiqueta};color:${C.inkSoft}">${escapar(NOMBRE_ETAPA[r.etapa] ?? r.etapa)}${r.revisor ? ` · ${escapar(r.revisor)}` : ''}</div>
+        <div style="margin-top:4px;font-family:${FUENTE};font-size:16px;line-height:24px;color:${C.ink}">${escapar(r.comentario!.trim()).replace(/\n/g, '<br>')}</div>
+      </td></tr>`)
+  if (filas.length === 0) return ''
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+      style="margin:0 0 24px;border:1px solid ${C.border};border-collapse:separate">
+      <tr><td style="padding:16px">
+        <div style="${estiloEtiqueta};color:${C.azulMedio};padding-bottom:10px">Comentarios de la revisión</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${filas.join('')}</table>
+      </td></tr>
+    </table>`
+}
+
 function boton(url: string, texto: string): string {
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 8px">
@@ -231,6 +265,7 @@ function armarCorreo(p: Payload): Correo | null {
           ${saludo}
           ${parrafo('Tu solicitud quedó registrada con el siguiente periodo:', '0 0 8px')}
           ${panelPeriodo(p)}
+          ${p.comentarios?.trim() ? panelMotivo(p.comentarios.trim(), estado, 'Tus comentarios') : ''}
           ${parrafo('A partir de este momento inicia el proceso de revisión y aprobación. Te notificaremos por este medio cuando se emita una resolución.')}
           ${appUrl ? boton(appUrl, 'Consultar mi solicitud') : ''}`),
       }
@@ -243,11 +278,14 @@ function armarCorreo(p: Payload): Correo | null {
           ${saludo}
           ${parrafo('Tu solicitud concluyó el proceso de revisión y fue <strong>aprobada</strong> para el siguiente periodo:', '0 0 8px')}
           ${panelPeriodo(p)}
+          ${panelComentariosRevision(p)}
           ${parrafo('Antes de tu salida, te pedimos dejar tus pendientes documentados y coordinados con tu jefe inmediato.')}`),
       }
 
     case 'rechazada': {
       const motivo = p.revision?.comentario?.trim()
+      // El rechazo es la ultima revision del historial
+      const revisorRechazo = p.revisiones?.at(-1)?.revisor ?? null
       return {
         asunto: 'Tu solicitud de vacaciones no fue aprobada',
         imagenes,
@@ -255,7 +293,8 @@ function armarCorreo(p: Payload): Correo | null {
           ${saludo}
           ${parrafo('Te informamos que tu solicitud para el siguiente periodo <strong>no fue aprobada</strong>:', '0 0 8px')}
           ${panelPeriodo(p)}
-          ${motivo ? panelMotivo(motivo, estado) : ''}
+          ${motivo ? panelMotivo(motivo, estado, p.revision ? `Motivo · ${NOMBRE_ETAPA[p.revision.etapa] ?? p.revision.etapa}${revisorRechazo ? ` · ${revisorRechazo}` : ''}` : 'Motivo') : ''}
+          ${panelComentariosRevision(p, p.revision?.etapa ?? null)}
           ${parrafo('Te invitamos cordialmente a <strong>reagendar tus vacaciones</strong> en otras fechas. Para cualquier aclaración, el área de Recursos Humanos está a tu disposición.')}
           ${appUrl ? boton(appUrl, 'Registrar nueva solicitud') : ''}`),
       }

@@ -136,11 +136,17 @@ export interface EdicionSolicitud {
   nuevo?: PeriodoEdicion;
 }
 
+// ninguna = solo esa fecha; fecha = mismo dia y mes cada año; dia_semana =
+// mismo n-ésimo día de la semana del mes cada año (p. ej. tercer lunes de marzo).
+export type RepeticionFestivo = "ninguna" | "fecha" | "dia_semana";
+
 export interface DiaFestivo {
   id: string;
+  // Fecha capturada; si se repite, aplica desde ese año en adelante.
   fecha: string;
   nombre: string;
   sedeId?: string;
+  repeticion: RepeticionFestivo;
 }
 
 export interface DatosVacaciones {

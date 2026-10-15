@@ -6,7 +6,7 @@ import { es } from "date-fns/locale";
 import { CircleX, Pencil, X } from "lucide-react";
 import { diasVacaciones, siguienteDiaHabil } from "../lib/diaHabil";
 import { separarUrgencia } from "../lib/urgente";
-import type { EdicionSolicitud, Empleado, PeriodoEdicion, SolicitudAusencia, SolicitudFormulario } from "../types";
+import type { DiaFestivo, EdicionSolicitud, Empleado, PeriodoEdicion, SolicitudAusencia, SolicitudFormulario } from "../types";
 
 // Flujo de edicion (017): el empleado pide el cambio con su motivo y el
 // administrador lo aplica (pudiendo ajustar las fechas) o lo rechaza. Ambos
@@ -67,10 +67,11 @@ export function SolicitarEdicionModal({ solicitud, actualizando, onClose, onConf
   );
 }
 
-export function AtenderEdicionModal({ edicion, solicitud, empleado, actualizando, onClose, onAplicar, onRechazar }: {
+export function AtenderEdicionModal({ edicion, solicitud, empleado, diasFestivos, actualizando, onClose, onAplicar, onRechazar }: {
   edicion: EdicionSolicitud;
   solicitud: SolicitudAusencia;
   empleado: Empleado | undefined;
+  diasFestivos: DiaFestivo[];
   actualizando: boolean;
   onClose: () => void;
   onAplicar: (formulario: SolicitudFormulario, motivo: string) => Promise<boolean>;
@@ -84,7 +85,7 @@ export function AtenderEdicionModal({ edicion, solicitud, empleado, actualizando
   });
   const [motivo, setMotivo] = useState("");
   const periodoValido = Boolean(periodo.fechaInicio && periodo.fechaFin && periodo.fechaFin >= periodo.fechaInicio);
-  const diasNuevos = periodoValido ? diasVacaciones(periodo.fechaInicio, periodo.fechaFin, empleado?.diaDescanso) : 0;
+  const diasNuevos = periodoValido ? diasVacaciones(periodo.fechaInicio, periodo.fechaFin, empleado?.diaDescanso, diasFestivos, empleado?.sedeId) : 0;
   const ajustada = periodo.fechaInicio !== edicion.propuesta.fechaInicio || periodo.fechaFin !== edicion.propuesta.fechaFin;
   const sinMotivo = !motivo.trim();
 

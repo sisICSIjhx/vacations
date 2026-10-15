@@ -15,6 +15,7 @@ import type {
   EmpleadoFormulario,
   EstadoSolicitud,
   EtapaAprobacion,
+  RepeticionFestivo,
   RevisionSolicitud,
   SolicitudAusencia,
   SolicitudFormulario,
@@ -111,8 +112,12 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     ] = await Promise.all([
       db.from("empleados").select("*").is("eliminado_en", null).order("nombre_completo"),
       db.from("v_saldo_vacaciones_empleado").select("*").eq("anio_asignacion", anio),
-      db.from("v_dias_solicitud_calendario").select("*").gte("fecha_calendario", desde).lte("fecha_calendario", hasta),
-      db.from("dias_festivos").select("*").gte("fecha", desde).lte("fecha", hasta).order("fecha"),
+      // Todos los días de las solicitudes que tocan el año, aunque crucen a otro
+      // (22 dic – 4 ene): "Días solicitados" es el total del periodo, igual que
+      // el aviso de WhatsApp. Filtrar por fecha_calendario cortaba los de enero.
+      db.from("v_dias_solicitud_calendario").select("*").lte("fecha_inicio", hasta).gte("fecha_fin", desde),
+      // Los festivos anuales (019) de cualquier año más los de una sola fecha del año.
+      db.from("dias_festivos").select("*").is("eliminado_en", null).or(`repeticion.neq.ninguna,and(fecha.gte.${desde},fecha.lte.${hasta})`).order("fecha"),
       db.from("sedes").select("id,codigo,nombre").eq("activo", true).is("eliminado_en", null).order("nombre"),
       db.from("proyectos").select("id,codigo,nombre").eq("activo", true).is("eliminado_en", null).order("nombre"),
       db.from("categorias_empleado").select("id,codigo,nombre,color").eq("activo", true).is("eliminado_en", null).order("nombre"),
@@ -225,6 +230,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
         fecha: String(fila.fecha),
         nombre: String(fila.nombre),
         sedeId: fila.sede_id ? String(fila.sede_id) : undefined,
+        repeticion: (fila.repeticion ?? "ninguna") as RepeticionFestivo,
       })),
       ediciones: (edicionesResultado.data ?? []).map(edicionDesdeFila),
       sedes,
@@ -372,7 +378,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       setActualizando(false);
       return false;
     }
-    const dias = diasVacaciones(formulario.fechaInicio, formulario.fechaFin, empleado.diaDescanso);
+    const dias = diasVacaciones(formulario.fechaInicio, formulario.fechaFin, empleado.diaDescanso, datos.diasFestivos, empleado.sedeId);
     // El reintegro lo elige quien captura (por defecto, el siguiente día hábil)
     // y puede coincidir con la fecha final, pero no ser anterior.
     const fechaReintegro = formulario.fechaReintegro || siguienteDiaHabil(formulario.fechaFin);
@@ -475,7 +481,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !rpcError;
-  }, [cargarDesdeSupabase, datos.empleados, datos.solicitudes, datos.tiposAusencia]);
+  }, [cargarDesdeSupabase, datos.diasFestivos, datos.empleados, datos.solicitudes, datos.tiposAusencia]);
 
   const [revisionesDemo, setRevisionesDemo] = useState<Record<string, RevisionSolicitud[]>>(() => structuredClone(revisionesDemostracion));
 
@@ -725,7 +731,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     return !deleteError;
   }, [cargarDesdeSupabase]);
 
-  const guardarFestivo = useCallback(async (entrada: { id?: string; fecha: string; nombre: string }) => {
+  const guardarFestivo = useCallback(async (entrada: { id?: string; fecha: string; nombre: string; repeticion: RepeticionFestivo }) => {
     const nombre = entrada.nombre.trim();
     if (!nombre || !entrada.fecha) return false;
     setActualizando(true);
@@ -735,8 +741,8 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       setDatos((actual) => ({
         ...actual,
         diasFestivos: entrada.id
-          ? actual.diasFestivos.map((item) => (item.id === entrada.id ? { ...item, fecha: entrada.fecha, nombre } : item))
-          : [...actual.diasFestivos, { id: `festivo-${Date.now()}`, fecha: entrada.fecha, nombre }],
+          ? actual.diasFestivos.map((item) => (item.id === entrada.id ? { ...item, fecha: entrada.fecha, nombre, repeticion: entrada.repeticion } : item))
+          : [...actual.diasFestivos, { id: `festivo-${Date.now()}`, fecha: entrada.fecha, nombre, repeticion: entrada.repeticion }],
       }));
       setActualizando(false);
       return true;
@@ -744,7 +750,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
 
     const db = supabase.schema("vacaciones");
     if (entrada.id) {
-      const { error: updateError } = await db.from("dias_festivos").update({ fecha: entrada.fecha, nombre }).eq("id", entrada.id);
+      const { error: updateError } = await db.from("dias_festivos").update({ fecha: entrada.fecha, nombre, repeticion: entrada.repeticion }).eq("id", entrada.id);
       if (updateError) setError(updateError.message);
       else await cargarDesdeSupabase();
       setActualizando(false);
@@ -760,7 +766,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       setActualizando(false);
       return false;
     }
-    const { error: insertError } = await db.from("dias_festivos").insert({ organizacion_id: organizacionId, fecha: entrada.fecha, nombre });
+    const { error: insertError } = await db.from("dias_festivos").insert({ organizacion_id: organizacionId, fecha: entrada.fecha, nombre, repeticion: entrada.repeticion });
     if (insertError) setError(insertError.message);
     else await cargarDesdeSupabase();
     setActualizando(false);
@@ -830,7 +836,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       const edicion = datos.ediciones.find((item) => item.id === edicionId);
       const solicitud = datos.solicitudes.find((item) => item.id === edicion?.solicitudId);
       const empleado = datos.empleados.find((item) => item.id === solicitud?.empleadoId);
-      const dias = diasVacaciones(formulario.fechaInicio, formulario.fechaFin, empleado?.diaDescanso);
+      const dias = diasVacaciones(formulario.fechaInicio, formulario.fechaFin, empleado?.diaDescanso, datos.diasFestivos, empleado?.sedeId);
       setDatos((actual) => ({
         ...actual,
         solicitudes: actual.solicitudes.map((item) => item.id === solicitud?.id ? { ...item, fechaInicio: formulario.fechaInicio, fechaFin: formulario.fechaFin, fechaReintegro, dias, comentarios: comentarios ?? undefined } : item),
@@ -858,7 +864,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !rpcError;
-  }, [cargarDesdeSupabase, datos.ediciones, datos.empleados, datos.solicitudes]);
+  }, [cargarDesdeSupabase, datos.diasFestivos, datos.ediciones, datos.empleados, datos.solicitudes]);
 
   const rechazarEdicion = useCallback(async (edicionId: string, motivo: string) => {
     setActualizando(true);

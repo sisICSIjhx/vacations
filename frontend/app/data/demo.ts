@@ -175,13 +175,13 @@ export const datosDemostracion: DatosVacaciones = {
   ediciones: [],
   tiposAusencia: [{ id: "tipo-vacaciones", codigo: "VACACIONES", nombre: "Vacaciones", color: "#F4B740" }],
   diasFestivos: [
-    { id: "fest-1", fecha: "2026-01-01", nombre: "Año Nuevo" },
-    { id: "fest-2", fecha: "2026-02-02", nombre: "Día de la Constitución" },
-    { id: "fest-3", fecha: "2026-03-16", nombre: "Natalicio de Benito Juárez" },
-    { id: "fest-4", fecha: "2026-05-01", nombre: "Día del Trabajo" },
-    { id: "fest-5", fecha: "2026-09-16", nombre: "Día de la Independencia" },
-    { id: "fest-6", fecha: "2026-11-16", nombre: "Revolución Mexicana" },
-    { id: "fest-7", fecha: "2026-12-25", nombre: "Navidad" },
+    { id: "fest-1", fecha: "2026-01-01", nombre: "Año Nuevo", repeticion: "fecha" },
+    { id: "fest-2", fecha: "2026-02-02", nombre: "Día de la Constitución", repeticion: "dia_semana" },
+    { id: "fest-3", fecha: "2026-03-16", nombre: "Natalicio de Benito Juárez", repeticion: "dia_semana" },
+    { id: "fest-4", fecha: "2026-05-01", nombre: "Día del Trabajo", repeticion: "fecha" },
+    { id: "fest-5", fecha: "2026-09-16", nombre: "Día de la Independencia", repeticion: "fecha" },
+    { id: "fest-6", fecha: "2026-11-16", nombre: "Revolución Mexicana", repeticion: "dia_semana" },
+    { id: "fest-7", fecha: "2026-12-25", nombre: "Navidad", repeticion: "fecha" },
   ],
 };
 

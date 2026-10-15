@@ -402,6 +402,7 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
           edicion={edicionActiva.edicion}
           solicitud={edicionActiva.solicitud}
           empleado={empleadoDe(edicionActiva.solicitud)}
+          diasFestivos={datos.diasFestivos}
           actualizando={actualizando}
           onClose={() => setEdicionActiva(null)}
           onAplicar={(formularioEdicion, motivo) => onAplicarEdicion(edicionActiva.edicion!.id, formularioEdicion, motivo)}

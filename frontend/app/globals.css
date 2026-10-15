@@ -601,6 +601,8 @@ p { color: var(--muted); line-height: 1.55; }
 .festivos-card { grid-column: 1 / -1; }
 .festivo-add input[type="date"] { flex: 0 0 160px; }
 .festivo-add input:not([type="date"]) { flex: 1; }
+.festivo-add { flex-wrap: wrap; }
+.festivo-repeticion { flex: 0 1 290px; min-width: 0; }
 
 /* Adaptación */
 @media (max-width: 2570px) {
