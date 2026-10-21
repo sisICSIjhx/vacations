@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import {
-  Bell, Calendar, ChartPie, ChevronDown, ChevronLeft, ChevronRight,
+  Bell, Calendar, ChartPie, ChevronDown, ChevronLeft, ChevronRight, History,
   ClipboardList, KeyRound, LogOut, Menu, Moon, Plus, Settings2, ShieldCheck,
   PanelLeftClose, PanelLeftOpen, Sun, UserCog, UsersRound, X,
 } from "lucide-react";
@@ -14,6 +14,7 @@ import { EmployeeFocus } from "./components/EmployeeFocus";
 import { EmployeesView } from "./components/EmployeesView";
 import { AvisoSinAnticipacion, PanelExtemporaneo, reglasAnticipacion } from "./components/RegistroExtemporaneo";
 import { RequestsView } from "./components/RequestsView";
+import { HistoryView } from "./components/HistoryView";
 import { Select } from "./components/Select";
 import { YearCalendar } from "./components/YearCalendar";
 import { useVacationSystem } from "./hooks/useVacationSystem";
@@ -30,6 +31,7 @@ const navegacionPrincipal = [
 const navegacionAdministrativa = [
   { id: "personal" as VistaId, etiqueta: "Personal", icono: UsersRound, soloGestion: true },
   { id: "solicitudes" as VistaId, etiqueta: "Solicitudes", icono: ClipboardList, soloGestion: false },
+  { id: "historial" as VistaId, etiqueta: "Historial", icono: History, soloGestion: false },
   { id: "catalogos" as VistaId, etiqueta: "Catálogos", icono: Settings2, soloGestion: true },
 ];
 
@@ -310,7 +312,7 @@ export default function VacationApp() {
   // vigente es que solo el administrador elimina registros y gestiona accesos.
   const esAdministrador = perfil?.rol === "administrador";
   const puedeGestionar = esAdministrador || perfil?.rol === "rrhh";
-  const sistema = useVacationSystem(autorizado, anio);
+  const sistema = useVacationSystem(autorizado, anio, perfil);
   // Un "empleado" en autoservicio no tiene filtros (ver EmployeeFocus): su
   // panel de enfoque siempre muestra su propio registro, no el de los filtros
   // de equipo (que ni siquiera se le muestran).
@@ -331,8 +333,8 @@ export default function VacationApp() {
     [sistema.datos.solicitudes],
   );
   const opcionesAdministrativas = useMemo(
-    () => navegacionAdministrativa.filter((item) => !item.soloGestion || puedeGestionar),
-    [puedeGestionar],
+    () => navegacionAdministrativa.filter((item) => !item.soloGestion || puedeGestionar || (item.id === "personal" && perfil?.rol === "mesa_directiva")),
+    [puedeGestionar, perfil?.rol],
   );
   // El resumen agregado (saldos bajos, ausencias de todo el equipo) es
   // informacion de revision, no de autoservicio: se oculta para "empleado"
@@ -395,15 +397,17 @@ export default function VacationApp() {
         <main className="app-main">
           {vistaEfectiva === "resumen" && <DashboardView datos={sistema.datos} onNavigate={setVista} />}
           {vistaEfectiva === "calendario" && <div className="calendar-page page-stack"><section className="calendar-toolbar"><div><h1>Vacaciones del equipo</h1><p>Identifica ausencias simultáneas y consulta el detalle de cada día.</p></div><div className="calendar-actions"><div className="year-switch"><button type="button" onClick={() => setAnio((actual) => actual - 1)} aria-label="Año anterior" title="Año anterior"><ChevronLeft size={17} /></button><strong>{anio}</strong><button type="button" onClick={() => setAnio((actual) => actual + 1)} aria-label="Año siguiente" title="Año siguiente"><ChevronRight size={17} /></button></div>{(perfil?.rol === "administrador" || perfil?.rol === "empleado") && <button className="primary-button" type="button" disabled={sinEmpleadoVinculado} onClick={() => setCrearSolicitud(true)} title={sinEmpleadoVinculado ? "Tu cuenta no está vinculada a un empleado; contacta a RRHH o Administración" : "Crear solicitud"}><Plus size={17} />Crear solicitud</button>}</div></section><div className="calendar-content"><EmployeeFocus datos={sistema.datos} filtros={filtros} empleadoSeleccionado={empleadoSeleccionado} perfil={perfil} onChange={setFiltros} /><section className="calendar-surface content-card">{sistema.cargando ? <div className="calendar-loading"><span className="loader" /><p>Cargando calendario…</p></div> : <YearCalendar anio={anio} solicitudes={solicitudesFiltradas} diasFestivos={festivosDelAnio(sistema.datos.diasFestivos, anio)} compacto={perfil?.rol === "empleado"} />}</section></div></div>}
-          {vistaEfectiva === "personal" && puedeGestionar && <EmployeesView datos={sistema.datos} anio={anio} actualizando={sistema.actualizando} onGenerarSaldos={sistema.generarSaldosAnio} onSave={sistema.guardarEmpleado} onToggleEstado={sistema.cambiarEstadoEmpleado} onDelete={esAdministrador ? sistema.eliminarEmpleado : undefined} puedeGestionarAccesos={esAdministrador} />}
+          {vistaEfectiva === "personal" && (puedeGestionar || perfil?.rol === "mesa_directiva") && <EmployeesView error={sistema.error} soloSaldo={!puedeGestionar} datos={sistema.datos} anio={anio} actualizando={sistema.actualizando} onSave={sistema.guardarEmpleado} onToggleEstado={sistema.cambiarEstadoEmpleado} onDelete={esAdministrador ? sistema.eliminarEmpleado : undefined} puedeGestionarAccesos={esAdministrador} />}
           {vistaEfectiva === "solicitudes" && (
             <RequestsView
+              key={perfil?.usuarioId}
               datos={sistema.datos}
               perfil={perfil}
               actualizando={sistema.actualizando}
               onCreate={perfil?.rol === "administrador" || perfil?.rol === "empleado" ? sistema.guardarSolicitud : undefined}
               onRevisar={sistema.revisarSolicitud}
               onObtenerRevisiones={sistema.obtenerRevisiones}
+              consultarHistorial={sistema.consultarHistorial}
               onCancelarDias={perfil?.rol === "administrador" ? sistema.cancelarDiasSolicitud : undefined}
               onDelete={perfil?.rol === "administrador" ? sistema.eliminarSolicitud : undefined}
               onSolicitarEdicion={sistema.solicitarEdicion}
@@ -412,6 +416,7 @@ export default function VacationApp() {
             />
           )}
           {vistaEfectiva === "catalogos" && puedeGestionar && <CatalogsView datos={sistema.datos} actualizando={sistema.actualizando} onSave={sistema.guardarCatalogo} onDelete={esAdministrador ? sistema.eliminarCatalogo : undefined} onSaveFestivo={sistema.guardarFestivo} onDeleteFestivo={esAdministrador ? sistema.eliminarFestivo : undefined} />}
+          {vistaEfectiva === "historial" && <HistoryView key={perfil?.usuarioId} consultar={sistema.consultarHistorial} perfil={perfil} />}
         </main>
       </div>
       {crearSolicitud && <RequestModal datos={sistema.datos} perfil={perfil} actualizando={sistema.actualizando} onClose={() => setCrearSolicitud(false)} onCreate={crearSolicitudRapida} />}

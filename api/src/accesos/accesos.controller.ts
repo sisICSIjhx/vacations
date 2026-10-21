@@ -40,8 +40,8 @@ export class AccesosController {
   @ApiOperation({
     summary: 'Crea el acceso de un empleado (invitación de Supabase Auth)',
   })
-  crear(@Body() dto: CrearAccesoDto) {
-    return this.accesos.crear(dto);
+  crear(@Body() dto: CrearAccesoDto, @Req() solicitud: SolicitudAutenticada) {
+    return this.accesos.crear(dto, solicitud.sesion!.usuarioId);
   }
 
   @Patch(':usuarioId')
@@ -52,8 +52,9 @@ export class AccesosController {
   actualizar(
     @Param('usuarioId') usuarioId: string,
     @Body() dto: ActualizarAccesoDto,
+    @Req() solicitud: SolicitudAutenticada,
   ) {
-    return this.accesos.actualizar(usuarioId, dto);
+    return this.accesos.actualizar(usuarioId, dto, solicitud.sesion!.usuarioId);
   }
 
   @Get(':usuarioId/contrasena')
@@ -81,11 +82,13 @@ export class AccesosController {
   restablecerContrasena(
     @Param('usuarioId') usuarioId: string,
     @Body() dto: RestablecerContrasenaDto,
+    @Req() solicitud: SolicitudAutenticada,
   ) {
     return this.accesos.restablecerContrasena(
       usuarioId,
       dto.permitirCambio,
       dto.forzarCambio,
+      solicitud.sesion!.usuarioId,
     );
   }
 }

@@ -15,12 +15,18 @@ export class SupabaseService {
     this.claveSecreta = this.config.get<string>('SUPABASE_SECRET_KEY');
   }
 
-  administrador(): SupabaseClient {
+  administrador(actorId?: string): SupabaseClient {
     if (!this.url || !this.claveSecreta) {
       throw new ServiceUnavailableException(
         'Faltan SUPABASE_URL o SUPABASE_SECRET_KEY en el servidor.',
       );
     }
+    // Cliente por operación: no compartir cabeceras de autor entre solicitudes.
+    if (actorId)
+      return createClient(this.url, this.claveSecreta, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { 'x-vacaciones-actor-id': actorId } },
+      }) as SupabaseClient;
     this.clienteAdministrador ??= createClient(this.url, this.claveSecreta, {
       auth: { persistSession: false, autoRefreshToken: false },
     });

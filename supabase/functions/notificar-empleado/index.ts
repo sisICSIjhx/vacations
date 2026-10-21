@@ -6,6 +6,8 @@
 //   rechazada         con el motivo y la invitacion a reagendar
 //   edicion_aplicada  el administrador aplico la edicion que pidio (017)
 //   edicion_rechazada el administrador no aplico la edicion, con el motivo
+//   dias_reintegrados se cancelaron los dias de una solicitud aprobada y
+//                     volvieron al saldo, con el motivo (022)
 //
 // La invoca vacaciones.enviar_correo_empleado() (pg_net), definida en
 // 010_avisos_empleado_y_recordatorios.sql. El payload ya trae todos los datos;
@@ -33,7 +35,7 @@ import { ICONO_APROBADA_PNG, ICONO_RECHAZADA_PNG, ICONO_RECIBIDA_PNG, LOGO_PNG }
 type Etapa = 'rrhh' | 'jefe_inmediato' | 'mesa_directiva'
 
 interface Payload {
-  evento: 'solicitud_creada' | 'aprobada' | 'rechazada' | 'edicion_aplicada' | 'edicion_rechazada'
+  evento: 'solicitud_creada' | 'aprobada' | 'rechazada' | 'edicion_aplicada' | 'edicion_rechazada' | 'dias_reintegrados'
   solicitud_id: string
   empleado: { nombre: string; correo: string | null }
   tipo_ausencia: string | null
@@ -54,6 +56,8 @@ interface Payload {
     anterior: { fecha_inicio: string; fecha_fin: string; fecha_reintegro: string | null; dias: number } | null
     propuesta: { fecha_inicio: string; fecha_fin: string; fecha_reintegro: string | null }
   }
+  // Solo en dias_reintegrados (vacaciones.cancelar_dias_solicitud, 022)
+  cancelacion?: { motivo: string; cancelado_por: string | null; cancelado_en: string } | null
 }
 
 // Imagen adjunta en linea: el HTML la referencia como src="cid:<cid>"
@@ -125,6 +129,11 @@ const ESTADOS: Record<Payload['evento'], Estado> = {
     etiqueta: 'Edición no aplicada',
     color: '#C63D4F',
     icono: { cid: 'estado-rechazada', nombre: 'estado-rechazada.png', base64: ICONO_RECHAZADA_PNG },
+  },
+  dias_reintegrados: {
+    etiqueta: 'Días reintegrados',
+    color: C.azulMedio,
+    icono: { cid: 'estado-recibida', nombre: 'estado-recibida.png', base64: ICONO_RECIBIDA_PNG },
   },
 }
 
@@ -332,6 +341,21 @@ function armarCorreo(p: Payload): Correo | null {
           ${ed?.respuesta ? panelMotivo(ed.respuesta, estado) : ''}
           ${parrafo('Si necesitas otro cambio puedes registrar una nueva solicitud de edición desde el sistema.')}
           ${appUrl ? boton(appUrl, 'Consultar mi solicitud') : ''}`),
+      }
+    }
+
+    case 'dias_reintegrados': {
+      const cancelacion = p.cancelacion
+      return {
+        asunto: 'Se reintegraron días a tu saldo de vacaciones',
+        imagenes,
+        html: plantilla(estado, 'Se reintegraron días a tu saldo de vacaciones', `
+          ${saludo}
+          ${parrafo(`Se <strong>cancelaron</strong> tus vacaciones aprobadas del siguiente periodo porque no se utilizaron, y se reintegraron <strong>${escapar(textoDias(p.dias))}</strong> a tu saldo disponible:`, '0 0 8px')}
+          ${panelPeriodo(p)}
+          ${cancelacion?.motivo ? panelMotivo(cancelacion.motivo, estado, cancelacion.cancelado_por ? `Motivo · ${cancelacion.cancelado_por}` : 'Motivo') : ''}
+          ${parrafo('La solicitud se conserva en tu historial con estado «Cancelada». Este correo queda como constancia del ajuste; para cualquier aclaración, el área de Recursos Humanos está a tu disposición.')}
+          ${appUrl ? boton(appUrl, 'Consultar mi saldo') : ''}`),
       }
     }
 

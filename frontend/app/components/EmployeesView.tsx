@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { BadgeCheck, CalendarPlus, Check, Copy, Eye, KeyRound, Pencil, Plus, Search, ShieldCheck, Trash2, UserCheck, UserX, X } from "lucide-react";
+import { BadgeCheck, Check, Copy, Eye, KeyRound, Pencil, Plus, Search, ShieldCheck, Trash2, UserCheck, UserX, X } from "lucide-react";
 import { accesosDisponibles, actualizarAcceso, crearAcceso, listarAccesos, restablecerContrasena, verContrasena, type AccesoCreado, type AccesoUsuario } from "../lib/api";
 import { obtenerSupabase, supabaseConfigurado } from "../lib/supabase";
 import { Select } from "./Select";
 import { DIAS_SEMANA } from "../lib/diaHabil";
-import { antiguedadEnAnio, diasPorDerechoEnAnio } from "../lib/antiguedad";
+import { aniversarioEnAnio, antiguedadEnAnio, diasOtorgadosAl, diasPorDerechoEnAnio } from "../lib/antiguedad";
+import { cambioSaldo, valoresSaldo } from "../lib/ajusteSaldo";
 import type { DatosVacaciones, Empleado, EmpleadoFormulario, RolUsuario } from "../types";
 
 const ETIQUETA_ROL: Record<RolUsuario, string> = {
@@ -22,14 +23,14 @@ interface EmployeesViewProps {
   datos: DatosVacaciones;
   anio: number;
   actualizando: boolean;
-  // Crea los saldos faltantes del año (LFT + días no usados del año anterior).
-  onGenerarSaldos?: () => Promise<number | null>;
   onSave: (formulario: EmpleadoFormulario) => Promise<boolean>;
   onToggleEstado: (id: string, estado: "activo" | "inactivo") => Promise<boolean>;
   // Sin onDelete (p. ej. RRHH) no se muestra el botón de eliminar.
   onDelete?: (id: string) => Promise<boolean>;
   // La gestión de accesos (cuentas, roles, contraseñas) es solo del administrador.
   puedeGestionarAccesos?: boolean;
+  soloSaldo?: boolean;
+  error?: string | null;
 }
 
 const formularioVacio: EmpleadoFormulario = {
@@ -72,6 +73,8 @@ function desdeEmpleado(empleado: Empleado): EmpleadoFormulario {
     diasAcumulados: empleado.saldo.diasAcumulados,
     diasDisponibles: empleado.saldo.diasDisponibles,
     saldoNuevo: empleado.saldo.registrado === false,
+    saldoAnterior: empleado.saldo.registrado === false ? undefined : valoresSaldo(empleado.saldo),
+    motivoAjuste: "",
   };
 }
 
@@ -350,40 +353,42 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
   );
 }
 
-export function EmployeesView({ datos, anio, actualizando, onGenerarSaldos, onSave, onToggleEstado, onDelete, puedeGestionarAccesos = false }: EmployeesViewProps) {
+export function EmployeesView({ datos, anio, actualizando, onSave, onToggleEstado, onDelete, puedeGestionarAccesos = false, soloSaldo = false, error }: EmployeesViewProps) {
   const mostrarAccesos = supabaseConfigurado && accesosDisponibles && puedeGestionarAccesos;
   const [busqueda, setBusqueda] = useState("");
   const [formulario, setFormulario] = useState<EmpleadoFormulario | null>(null);
   const [accesos, setAccesos] = useState<AccesoUsuario[]>([]);
   const [gestionAcceso, setGestionAcceso] = useState<Empleado | null>(null);
   const empleados = useMemo(() => datos.empleados.filter((empleado) => `${empleado.nombre} ${empleado.numeroEmpleado} ${empleado.sede} ${empleado.proyecto}`.toLowerCase().includes(busqueda.toLowerCase())), [busqueda, datos.empleados]);
-  const [resultadoSaldos, setResultadoSaldos] = useState<string | null>(null);
-  // La fecha de ingreso aplica los días por derecho de la LFT del año. Un
-  // saldo nuevo calcula disponibles = derecho + acumulados; uno existente no,
-  // porque sus disponibles ya descuentan los días tomados.
+  // Los días por derecho se otorgan en el aniversario de ingreso (LFT; el
+  // sistema los suma solo ese día). En un saldo nuevo, la fecha de ingreso
+  // aplica los días ya otorgados y disponibles = derecho + acumulados; uno
+  // existente no se recalcula porque sus disponibles ya descuentan lo tomado.
+  const hoy = format(new Date(), "yyyy-MM-dd");
   const actualizar = (campo: keyof EmpleadoFormulario, valor: string | number) => setFormulario((actual) => {
     if (!actual) return actual;
     const siguiente = { ...actual, [campo]: valor };
+    if (!siguiente.saldoNuevo) return siguiente;
     if (campo === "fechaIngreso") {
-      const derecho = diasPorDerechoEnAnio(String(valor) || undefined, anio);
+      const derecho = diasOtorgadosAl(String(valor) || undefined, anio, hoy);
       if (derecho !== undefined) siguiente.diasPorDerecho = derecho;
     }
-    if (siguiente.saldoNuevo && (campo === "fechaIngreso" || campo === "diasPorDerecho" || campo === "diasAcumulados")) {
+    if (campo === "fechaIngreso" || campo === "diasPorDerecho" || campo === "diasAcumulados") {
       siguiente.diasDisponibles = siguiente.diasPorDerecho + siguiente.diasAcumulados;
     }
     return siguiente;
   });
-  const antiguedadFormulario = formulario ? antiguedadEnAnio(formulario.fechaIngreso || undefined, anio) : undefined;
-  const derechoLft = formulario ? diasPorDerechoEnAnio(formulario.fechaIngreso || undefined, anio) : undefined;
-  const sinSaldo = datos.empleados.filter((empleado) => empleado.saldo.registrado === false && empleado.estado === "activo" && empleado.fechaIngreso).length;
-
-  const generarSaldos = async () => {
-    if (!onGenerarSaldos) return;
-    const mensaje = `¿Generar los saldos de ${anio}? Se crearán solo para quien aún no tenga saldo ese año: días por derecho según su antigüedad (LFT), acumulados = días no usados de ${anio - 1} y disponibles = derecho + acumulados. Los saldos existentes no se modifican.`;
-    if (!window.confirm(mensaje)) return;
-    const creados = await onGenerarSaldos();
-    if (creados !== null) setResultadoSaldos(creados === 0 ? `Todos los empleados activos con fecha de ingreso ya tenían saldo ${anio}.` : `Se generaron ${creados} saldo(s) de ${anio}.`);
-  };
+  const fechaIngresoFormulario = formulario?.fechaIngreso || undefined;
+  const antiguedadFormulario = antiguedadEnAnio(fechaIngresoFormulario, anio);
+  const derechoLft = diasPorDerechoEnAnio(fechaIngresoFormulario, anio);
+  const aniversario = aniversarioEnAnio(fechaIngresoFormulario, anio);
+  const notaDerecho = derechoLft === undefined || !aniversario
+    ? "Captura la fecha de ingreso para calcular los días por derecho (LFT art. 76)."
+    : derechoLft === 0
+      ? `Sin días por derecho en ${anio}: cumple su primer año en ${anio + 1}.`
+      : aniversario > hoy
+        ? `El ${format(parseISO(aniversario), "d 'de' MMMM yyyy", { locale: es })} cumple ${antiguedadFormulario} año(s) y se le sumarán ${derechoLft} día(s) por derecho automáticamente.`
+        : `${derechoLft} día(s) por derecho otorgados el ${format(parseISO(aniversario), "d 'de' MMMM yyyy", { locale: es })} por ${antiguedadFormulario} año(s) de antigüedad.`;
   const accesoDe = (empleado: Empleado) => accesos.find((item) => item.empleadoId === empleado.id);
 
   const cargarAccesos = useCallback(() => {
@@ -395,6 +400,7 @@ export function EmployeesView({ datos, anio, actualizando, onGenerarSaldos, onSa
   const guardar = async (evento: React.FormEvent) => {
     evento.preventDefault();
     if (!formulario) return;
+    if (cambioSaldo(formulario) && !formulario.motivoAjuste?.trim()) return;
     const correcto = await onSave({ ...formulario, curp: formulario.curp.toUpperCase() });
     if (correcto) setFormulario(null);
   };
@@ -417,12 +423,8 @@ export function EmployeesView({ datos, anio, actualizando, onGenerarSaldos, onSa
     <div className="page-stack">
       <section className="page-title-row">
         <div><span className="eyebrow">Administración</span><h1>Personal</h1><p>Expediente, asignación y saldo vacacional del equipo.</p></div>
-        <div className="title-actions">
-          {onGenerarSaldos && <button className="secondary-button" type="button" disabled={actualizando} onClick={() => void generarSaldos()} title={sinSaldo ? `${sinSaldo} empleado(s) sin saldo ${anio}` : `Generar saldos ${anio}`}><CalendarPlus size={17} />Generar saldos {anio}{sinSaldo ? ` (${sinSaldo})` : ""}</button>}
-          <button className="primary-button" type="button" onClick={() => setFormulario({ ...formularioVacio })} title="Alta de empleado"><Plus size={17} />Alta de empleado</button>
-        </div>
+        {!soloSaldo && <button className="primary-button" type="button" onClick={() => setFormulario({ ...formularioVacio })} title="Alta de empleado"><Plus size={17} />Alta de empleado</button>}
       </section>
-      {resultadoSaldos && <p className="empty-note" role="status">{resultadoSaldos}</p>}
 
       <section className="content-card table-card">
         <header className="table-toolbar">
@@ -447,8 +449,8 @@ export function EmployeesView({ datos, anio, actualizando, onGenerarSaldos, onSa
                   <td>
                     <div className="row-actions">
                       {mostrarAccesos && <button className="icon-button subtle" type="button" onClick={() => setGestionAcceso(empleado)} aria-label={`Gestionar acceso de ${empleado.nombre}`} title="Gestionar acceso"><KeyRound size={16} /></button>}
-                      <button className="icon-button subtle" type="button" disabled={actualizando} onClick={() => setFormulario(desdeEmpleado(empleado))} aria-label={`Editar ${empleado.nombre}`} title={`Editar ${empleado.nombre}`}><Pencil size={16} /></button>
-                      <button className="icon-button subtle" type="button" disabled={actualizando} onClick={() => alternarEstado(empleado)} aria-label={empleado.estado === "activo" ? `Dar de baja a ${empleado.nombre}` : `Reactivar a ${empleado.nombre}`} title={empleado.estado === "activo" ? `Dar de baja a ${empleado.nombre}` : `Reactivar a ${empleado.nombre}`}>{empleado.estado === "activo" ? <UserX size={16} /> : <UserCheck size={16} />}</button>
+                      <button className="icon-button subtle" type="button" disabled={actualizando || (soloSaldo && empleado.saldo.registrado === false)} onClick={() => setFormulario(desdeEmpleado(empleado))} aria-label={`${soloSaldo ? "Ajustar saldo de" : "Editar"} ${empleado.nombre}`} title={`${soloSaldo ? "Ajustar saldo de" : "Editar"} ${empleado.nombre}`}><Pencil size={16} /></button>
+                      {!soloSaldo && <button className="icon-button subtle" type="button" disabled={actualizando} onClick={() => alternarEstado(empleado)} aria-label={empleado.estado === "activo" ? `Dar de baja a ${empleado.nombre}` : `Reactivar a ${empleado.nombre}`} title={empleado.estado === "activo" ? `Dar de baja a ${empleado.nombre}` : `Reactivar a ${empleado.nombre}`}>{empleado.estado === "activo" ? <UserX size={16} /> : <UserCheck size={16} />}</button>}
                       {onDelete && <button className="icon-button subtle danger" type="button" disabled={actualizando} onClick={() => eliminar(empleado)} aria-label={`Eliminar ${empleado.nombre}`} title={`Eliminar ${empleado.nombre}`}><Trash2 size={16} /></button>}
                     </div>
                   </td>
@@ -462,8 +464,8 @@ export function EmployeesView({ datos, anio, actualizando, onGenerarSaldos, onSa
       {formulario && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) setFormulario(null); }}>
           <form className="form-modal employee-form" onSubmit={guardar}>
-            <header><div><span className="eyebrow">{formulario.id ? "Modificar registro" : "Nuevo registro"}</span><h2>{formulario.id ? "Editar empleado" : "Alta de empleado"}</h2></div><button className="icon-button" type="button" onClick={() => setFormulario(null)} aria-label="Cerrar" title="Cerrar"><X size={19} /></button></header>
-            <div className="form-grid two-columns">
+            <header><div><span className="eyebrow">{soloSaldo ? formulario.nombre : formulario.id ? "Modificar registro" : "Nuevo registro"}</span><h2>{soloSaldo ? "Ajustar saldo vacacional" : formulario.id ? "Editar empleado" : "Alta de empleado"}</h2></div><button className="icon-button" type="button" onClick={() => setFormulario(null)} aria-label="Cerrar" title="Cerrar"><X size={19} /></button></header>
+            {!soloSaldo && <div className="form-grid two-columns">
               <label className="span-two"><span>Nombre completo *</span><input required value={formulario.nombre} onChange={(e) => actualizar("nombre", e.target.value)} /></label>
               <label><span>Número de empleado *</span><input required value={formulario.numeroEmpleado} onChange={(e) => actualizar("numeroEmpleado", e.target.value)} /></label>
               <label><span>Correo electrónico</span><input type="email" value={formulario.correo} onChange={(e) => actualizar("correo", e.target.value)} /></label>
@@ -477,7 +479,7 @@ export function EmployeesView({ datos, anio, actualizando, onGenerarSaldos, onSa
               <label><span>Jefe inmediato</span><Select value={formulario.jefeInmediatoId} onChange={(valor) => actualizar("jefeInmediatoId", valor)}><option value="">Sin jefe asignado</option>{datos.empleados.filter((item) => item.id !== formulario.id).map((item) => <option value={item.id} key={item.id}>{item.nombre}</option>)}</Select></label>
               <label><span>Día de descanso</span><Select value={formulario.diaDescanso} onChange={(valor) => actualizar("diaDescanso", valor)}><option value="">Sin definir (cuenta todos los días)</option>{DIAS_SEMANA.map((dia, indice) => <option value={String(indice)} key={dia}>{dia}</option>)}</Select></label>
               <label><span>Color en calendario</span><span className="color-input"><input type="color" value={formulario.color} onChange={(e) => actualizar("color", e.target.value)} /><code>{formulario.color}</code></span></label>
-            </div>
+            </div>}
             <section className="employee-balance" aria-labelledby="employee-balance-title" aria-describedby="employee-balance-help">
               <header className="employee-balance-header">
                 <h3 id="employee-balance-title"><BadgeCheck size={18} aria-hidden="true" />Saldo vacacional</h3>
@@ -489,14 +491,21 @@ export function EmployeesView({ datos, anio, actualizando, onGenerarSaldos, onSa
               <label><span>Disponibles actuales</span><input type="number" min="0" step="0.5" value={formulario.diasDisponibles} onChange={(e) => actualizar("diasDisponibles", Number(e.target.value))} /></label>
               </div>
               <p className="employee-balance-help" id="employee-balance-help">
-                {derechoLft === undefined
-                  ? "Captura la fecha de ingreso para calcular los días por derecho (LFT art. 76)."
-                  : `LFT ${anio}: ${derechoLft} día(s) por ${antiguedadFormulario} año(s) de antigüedad.`}
+                {notaDerecho}
                 {" "}
                 {formulario.saldoNuevo ? "Disponibles = derecho + acumulados (días no usados del año anterior)." : "Disponibles ya descuenta los días tomados en el año."}
               </p>
+              {cambioSaldo(formulario) && <div className="balance-adjustment">
+                <p className="employee-balance-help" role="status">
+                  Disponibles: {formulario.saldoAnterior!.diasDisponibles} → {formulario.diasDisponibles} días
+                  {" · "}Cambio: {formulario.diasDisponibles - formulario.saldoAnterior!.diasDisponibles > 0 ? "+" : ""}{formulario.diasDisponibles - formulario.saldoAnterior!.diasDisponibles} días.
+                </p>
+                <label><span>Motivo del ajuste *</span><textarea required maxLength={2000} rows={3} value={formulario.motivoAjuste ?? ""} onChange={e => actualizar("motivoAjuste", e.target.value)} placeholder="Ejemplo: Descuento de 4 días por ausencias, solicitado por el empleado." aria-describedby="balance-reason-help" /></label>
+                <p id="balance-reason-help" className="employee-balance-help">Obligatorio al aumentar o disminuir días. El motivo, tu usuario y la fecha quedarán registrados en el historial.</p>
+              </div>}
             </section>
-            <footer><button className="secondary-button" type="button" onClick={() => setFormulario(null)} title="Cancelar">Cancelar</button><button className="primary-button" type="submit" disabled={actualizando} title={actualizando ? "Guardando…" : "Guardar empleado"}>{actualizando ? "Guardando…" : "Guardar empleado"}</button></footer>
+            {error && <p className="inline-alert error" role="alert">{error}</p>}
+            <footer><button className="secondary-button" type="button" onClick={() => setFormulario(null)} title="Cancelar">Cancelar</button><button className="primary-button" type="submit" disabled={actualizando || (cambioSaldo(formulario) && !formulario.motivoAjuste?.trim())} title={actualizando ? "Guardando…" : soloSaldo ? "Guardar ajuste" : "Guardar empleado"}>{actualizando ? "Guardando…" : soloSaldo ? "Guardar ajuste" : "Guardar empleado"}</button></footer>
           </form>
         </div>
       )}

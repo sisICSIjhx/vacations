@@ -6,7 +6,9 @@ import { datosDemostracion, revisionesDemostracion } from "../data/demo";
 import { obtenerSupabase, supabaseConfigurado } from "../lib/supabase";
 import { comentarioConUrgencia, separarUrgencia } from "../lib/urgente";
 import { diasVacaciones, siguienteDiaHabil } from "../lib/diaHabil";
-import { diasPorDerechoEnAnio } from "../lib/antiguedad";
+import { cambiosDemo, filtrarHistorial, historialSolicitudExistente, puedeVerEvento, type EventoActividad, type FiltrosHistorial } from "../lib/historial";
+import { consultarHistorialRemoto } from "../lib/consultarHistorial";
+import { cambioSaldo, validarAjusteSaldo } from "../lib/ajusteSaldo";
 import type {
   Catalogo,
   DatosVacaciones,
@@ -16,6 +18,7 @@ import type {
   EmpleadoFormulario,
   EstadoSolicitud,
   EtapaAprobacion,
+  PerfilUsuario,
   RepeticionFestivo,
   RevisionSolicitud,
   SolicitudAusencia,
@@ -84,8 +87,23 @@ function codigoDesdeNombre(nombre: string) {
     .slice(0, 24);
 }
 
-export function useVacationSystem(habilitado: boolean, anio: number) {
-  const [datos, setDatos] = useState<DatosVacaciones>(() => copiarDemo());
+export function useVacationSystem(habilitado: boolean, anio: number, perfil: PerfilUsuario | null = null) {
+  const [estadoDatos, setEstadoDatos] = useState(() => {
+    const datos = copiarDemo();
+    return { datos, eventos: datos.solicitudes.flatMap(s => historialSolicitudExistente(s, [], datos.ediciones.filter(e => e.solicitudId === s.id))) };
+  });
+  const { datos, eventos: eventosDemo } = estadoDatos;
+  const actorDemo = perfil?.nombreVisible ?? "Autor no registrado";
+  const setDatos = useCallback((actualizar: DatosVacaciones | ((datos: DatosVacaciones) => DatosVacaciones), ajuste?: { empleadoId?: string; motivo?: string }) => {
+    const fecha = new Date().toISOString();
+    setEstadoDatos(actual => {
+      const siguiente = typeof actualizar === "function" ? actualizar(actual.datos) : actualizar;
+      const eventos = cambiosDemo(actual.datos, siguiente, actorDemo, fecha).map(evento =>
+        ajuste && evento.modulo === "saldos" && evento.empleadoId === ajuste.empleadoId
+          ? { ...evento, actorId: perfil?.usuarioId, motivo: ajuste.motivo?.trim() } : evento);
+      return { datos: siguiente, eventos: supabaseConfigurado ? [] : [...actual.eventos, ...eventos] };
+    });
+  }, [actorDemo, perfil?.usuarioId]);
   const [cargando, setCargando] = useState(supabaseConfigurado);
   const [error, setError] = useState<string | null>(null);
   const [actualizando, setActualizando] = useState(false);
@@ -252,15 +270,19 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       tiposAusencia,
     });
     setCargando(false);
-  }, [anio, habilitado]);
+  }, [anio, habilitado, setDatos]);
 
   useEffect(() => {
     if (!supabaseConfigurado || !habilitado) return;
     const temporizador = window.setTimeout(() => void cargarDesdeSupabase(), 0);
     return () => window.clearTimeout(temporizador);
-  }, [cargarDesdeSupabase, habilitado]);
+  }, [cargarDesdeSupabase, setDatos, actorDemo, habilitado]);
 
   const guardarEmpleado = useCallback(async (formulario: EmpleadoFormulario) => {
+    const errorValidacion = validarAjusteSaldo(formulario, perfil);
+    if (errorValidacion) { setError(errorValidacion); return false; }
+    const soloSaldo = perfil?.rol === "mesa_directiva";
+    const guardarSaldo = !formulario.saldoAnterior || cambioSaldo(formulario);
     setActualizando(true);
     setError(null);
     const supabase = obtenerSupabase();
@@ -292,7 +314,8 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
           jefeInmediatoId: formulario.jefeInmediatoId || undefined,
           jefeInmediato,
           diaDescanso: formulario.diaDescanso === "" ? undefined : Number(formulario.diaDescanso),
-          saldo: {
+          ...(soloSaldo && existente ? existente : {}),
+          saldo: !guardarSaldo && existente ? existente.saldo : {
             anio,
             diasPorDerecho: formulario.diasPorDerecho,
             diasAcumulados: formulario.diasAcumulados,
@@ -310,7 +333,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
             ? actual.empleados.map((item) => (item.id === empleado.id ? empleado : item))
             : [...actual.empleados, empleado],
         };
-      });
+      }, { empleadoId: formulario.id, motivo: formulario.motivoAjuste });
       setActualizando(false);
       return true;
     }
@@ -345,13 +368,13 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
 
     let empleadoId = formulario.id;
     let operacionCorrecta = true;
-    if (empleadoId) {
+    if (empleadoId && !soloSaldo) {
       const { error: updateError } = await db.from("empleados").update(payload).eq("id", empleadoId);
       if (updateError) {
         setError(updateError.message);
         operacionCorrecta = false;
       }
-    } else {
+    } else if (!empleadoId && !soloSaldo) {
       const { data, error: insertError } = await db.from("empleados").insert(payload).select("id").single();
       if (insertError) {
         setError(insertError.message);
@@ -360,28 +383,25 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
       empleadoId = data?.id;
     }
 
-    if (empleadoId) {
-      const tipoVacaciones = datos.tiposAusencia.find((item) => item.codigo === "VACACIONES") ?? datos.tiposAusencia[0];
-      if (tipoVacaciones) {
-        const { error: saldoError } = await db.from("asignaciones_ausencia").upsert({
-          empleado_id: empleadoId,
-          tipo_ausencia_id: tipoVacaciones.id,
-          anio_asignacion: anio,
-          dias_por_derecho: formulario.diasPorDerecho,
-          dias_acumulados_a_fecha: formulario.diasAcumulados,
-          dias_disponibles: formulario.diasDisponibles,
-          fecha_corte_saldo: new Date().toISOString().slice(0, 10),
-        }, { onConflict: "empleado_id,tipo_ausencia_id,anio_asignacion" });
+    if (empleadoId && operacionCorrecta && guardarSaldo) {
+        const { error: saldoError } = await db.rpc("guardar_saldo_vacaciones", {
+          p_empleado_id: empleadoId,
+          p_anio: anio,
+          p_dias_por_derecho: formulario.diasPorDerecho,
+          p_dias_acumulados: formulario.diasAcumulados,
+          p_dias_disponibles: formulario.diasDisponibles,
+          p_anteriores: formulario.saldoAnterior ?? null,
+          p_motivo: formulario.motivoAjuste?.trim() || null,
+        });
         if (saldoError) {
           setError(saldoError.message);
           operacionCorrecta = false;
         }
-      }
     }
     if (operacionCorrecta) await cargarDesdeSupabase();
     setActualizando(false);
     return operacionCorrecta;
-  }, [anio, cargarDesdeSupabase, datos.empleados, datos.tiposAusencia]);
+  }, [anio, cargarDesdeSupabase, datos.empleados, perfil, setDatos]);
 
   const guardarSolicitud = useCallback(async (formulario: SolicitudFormulario) => {
     setActualizando(true);
@@ -495,7 +515,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !rpcError;
-  }, [cargarDesdeSupabase, datos.diasFestivos, datos.empleados, datos.solicitudes, datos.tiposAusencia]);
+  }, [cargarDesdeSupabase, setDatos, datos.diasFestivos, datos.empleados, datos.solicitudes, datos.tiposAusencia]);
 
   const [revisionesDemo, setRevisionesDemo] = useState<Record<string, RevisionSolicitud[]>>(() => structuredClone(revisionesDemostracion));
 
@@ -568,6 +588,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
           decision,
           estadoResultante,
           comentario: comentario || undefined,
+          nombreRevisor: actorDemo,
           creadoEn: new Date().toISOString(),
         }],
       }));
@@ -585,7 +606,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !rpcError;
-  }, [cargarDesdeSupabase, datos.empleados, datos.solicitudes]);
+  }, [cargarDesdeSupabase, setDatos, actorDemo, datos.empleados, datos.solicitudes]);
 
   const obtenerRevisiones = useCallback(async (solicitudId: string): Promise<RevisionSolicitud[]> => {
     const supabase = obtenerSupabase();
@@ -613,6 +634,16 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     }));
   }, [revisionesDemo]);
 
+  const consultarHistorial = useCallback(async (filtros: FiltrosHistorial) => {
+    if (supabaseConfigurado) return consultarHistorialRemoto(filtros);
+    const decisiones: EventoActividad[] = Object.values(revisionesDemo).flat().map(r => {
+      const solicitud = datos.solicitudes.find(s => s.id === r.solicitudId);
+      const anterior = eventosDemo.find(e => e.solicitudId === r.solicitudId);
+      return { id: `revision:${r.id}`, ocurridoEn: r.creadoEn, actor: r.nombreRevisor ?? "Autor no registrado", modulo: "solicitudes", entidad: "revisiones_solicitud", registroId: r.id, solicitudId: r.solicitudId, empleadoId: solicitud?.empleadoId ?? anterior?.empleadoId, sujeto: anterior?.sujeto ?? solicitud?.nombreEmpleado ?? "Solicitud", accion: r.decision === "aprobado" ? "aprobacion" : "rechazo", motivo: r.comentario, anteriores: {}, nuevos: { etapa: r.etapa, estado_resultante: r.estadoResultante } };
+    });
+    return filtrarHistorial([...eventosDemo, ...decisiones].filter(e => puedeVerEvento(e, perfil, datos)), filtros);
+  }, [datos, eventosDemo, perfil, revisionesDemo]);
+
   const eliminarSolicitud = useCallback(async (id: string) => {
     setActualizando(true);
     setError(null);
@@ -627,7 +658,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !deleteError;
-  }, [cargarDesdeSupabase]);
+  }, [cargarDesdeSupabase, setDatos]);
 
   const cambiarEstadoSolicitud = useCallback(async (id: string, estado: EstadoSolicitud) => {
     setActualizando(true);
@@ -645,7 +676,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !rpcError;
-  }, [cargarDesdeSupabase]);
+  }, [cargarDesdeSupabase, setDatos]);
 
   // Cancela los días de una solicitud aprobada sin eliminarla (022): queda
   // 'cancelada' en el historial, los días vuelven al saldo y el empleado recibe
@@ -660,7 +691,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
         if (!solicitud || solicitud.estado !== "aprobada") return actual;
         return {
           ...actual,
-          solicitudes: actual.solicitudes.map((item) => item.id === id ? { ...item, estado: "cancelada", cancelacion: { motivo: motivo.trim(), canceladoPor: "Administrador", canceladoEn: new Date().toISOString() } } : item),
+          solicitudes: actual.solicitudes.map((item) => item.id === id ? { ...item, estado: "cancelada", cancelacion: { motivo: motivo.trim(), canceladoPor: actorDemo, canceladoEn: new Date().toISOString() } } : item),
           empleados: actual.empleados.map((empleado) => empleado.id === solicitud.empleadoId
             ? { ...empleado, saldo: { ...empleado.saldo, diasDisponibles: empleado.saldo.diasDisponibles + solicitud.dias, diasTomados: Math.max(empleado.saldo.diasTomados - solicitud.dias, 0) } }
             : empleado),
@@ -677,7 +708,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !rpcError;
-  }, [cargarDesdeSupabase]);
+  }, [cargarDesdeSupabase, setDatos, actorDemo]);
 
   const cambiarEstadoEmpleado = useCallback(async (id: string, estado: "activo" | "inactivo") => {
     setActualizando(true);
@@ -693,7 +724,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !updateError;
-  }, [cargarDesdeSupabase]);
+  }, [cargarDesdeSupabase, setDatos]);
 
   const eliminarEmpleado = useCallback(async (id: string) => {
     setActualizando(true);
@@ -711,7 +742,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !deleteError;
-  }, [cargarDesdeSupabase]);
+  }, [cargarDesdeSupabase, setDatos]);
 
   const guardarCatalogo = useCallback(async (tipo: TipoCatalogo, entrada: { id?: string; nombre: string }) => {
     const limpio = entrada.nombre.trim();
@@ -755,7 +786,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !insertError;
-  }, [cargarDesdeSupabase, datos.empleados]);
+  }, [cargarDesdeSupabase, setDatos, datos.empleados]);
 
   const eliminarCatalogo = useCallback(async (tipo: TipoCatalogo, id: string) => {
     setActualizando(true);
@@ -775,7 +806,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !deleteError;
-  }, [cargarDesdeSupabase]);
+  }, [cargarDesdeSupabase, setDatos]);
 
   const guardarFestivo = useCallback(async (entrada: { id?: string; fecha: string; nombre: string; repeticion: RepeticionFestivo }) => {
     const nombre = entrada.nombre.trim();
@@ -817,7 +848,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !insertError;
-  }, [cargarDesdeSupabase, datos.empleados]);
+  }, [cargarDesdeSupabase, setDatos, datos.empleados]);
 
   const eliminarFestivo = useCallback(async (id: string) => {
     setActualizando(true);
@@ -833,7 +864,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !deleteError;
-  }, [cargarDesdeSupabase]);
+  }, [cargarDesdeSupabase, setDatos]);
 
   // ---- Solicitudes de edicion (017) ----
   // El empleado (o el administrador en su nombre) pide el cambio; solo el
@@ -854,6 +885,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
           motivo: propuesta.motivo.trim(),
           propuesta: { fechaInicio: propuesta.fechaInicio, fechaFin: propuesta.fechaFin, fechaReintegro: propuesta.fechaReintegro || undefined },
           solicitadoEn: new Date().toISOString(),
+          solicitadoPor: actorDemo,
         }, ...actual.ediciones],
       }));
       setActualizando(false);
@@ -870,7 +902,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !rpcError;
-  }, [cargarDesdeSupabase, datos.solicitudes]);
+  }, [cargarDesdeSupabase, setDatos, actorDemo, datos.solicitudes]);
 
   const aplicarEdicion = useCallback(async (edicionId: string, formulario: SolicitudFormulario, motivo: string) => {
     setActualizando(true);
@@ -890,7 +922,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
           ...item,
           estado: "aplicada" as const,
           respuesta: motivo.trim(),
-          resueltoEn: new Date().toISOString(),
+          resueltoPor: actorDemo, resueltoEn: new Date().toISOString(),
           anterior: solicitud ? { fechaInicio: solicitud.fechaInicio, fechaFin: solicitud.fechaFin, fechaReintegro: solicitud.fechaReintegro, dias: solicitud.dias } : undefined,
           nuevo: { fechaInicio: formulario.fechaInicio, fechaFin: formulario.fechaFin, fechaReintegro, dias },
         } : item),
@@ -910,7 +942,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !rpcError;
-  }, [cargarDesdeSupabase, datos.diasFestivos, datos.ediciones, datos.empleados, datos.solicitudes]);
+  }, [cargarDesdeSupabase, setDatos, actorDemo, datos.diasFestivos, datos.ediciones, datos.empleados, datos.solicitudes]);
 
   const rechazarEdicion = useCallback(async (edicionId: string, motivo: string) => {
     setActualizando(true);
@@ -919,7 +951,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     if (!supabase) {
       setDatos((actual) => ({
         ...actual,
-        ediciones: actual.ediciones.map((item) => item.id === edicionId ? { ...item, estado: "rechazada" as const, respuesta: motivo.trim(), resueltoEn: new Date().toISOString() } : item),
+        ediciones: actual.ediciones.map((item) => item.id === edicionId ? { ...item, estado: "rechazada" as const, respuesta: motivo.trim(), resueltoPor: actorDemo, resueltoEn: new Date().toISOString() } : item),
       }));
       setActualizando(false);
       return true;
@@ -932,38 +964,7 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     else await cargarDesdeSupabase();
     setActualizando(false);
     return !rpcError;
-  }, [cargarDesdeSupabase]);
-
-  // Crea el saldo del año para quien no lo tenga: días por derecho según la
-  // LFT y acumulados = disponibles del año anterior (migración 023). Devuelve
-  // cuántos saldos se crearon o null si falló.
-  const generarSaldosAnio = useCallback(async (): Promise<number | null> => {
-    setActualizando(true);
-    setError(null);
-    const supabase = obtenerSupabase();
-    if (!supabase) {
-      const generar = (empleado: Empleado) => empleado.saldo.registrado === false && empleado.estado === "activo"
-        ? diasPorDerechoEnAnio(empleado.fechaIngreso, anio)
-        : undefined;
-      const creados = datos.empleados.filter((empleado) => generar(empleado) !== undefined).length;
-      setDatos((actual) => ({
-        ...actual,
-        empleados: actual.empleados.map((empleado) => {
-          const derecho = generar(empleado);
-          return derecho === undefined
-            ? empleado
-            : { ...empleado, saldo: { ...empleado.saldo, anio, diasPorDerecho: derecho, diasAcumulados: 0, diasDisponibles: derecho, registrado: true } };
-        }),
-      }));
-      setActualizando(false);
-      return creados;
-    }
-    const { data, error: rpcError } = await supabase.schema("vacaciones").rpc("generar_saldos_anio", { p_anio: anio });
-    if (rpcError) setError(rpcError.message);
-    else await cargarDesdeSupabase();
-    setActualizando(false);
-    return rpcError ? null : Number(data ?? 0);
-  }, [anio, cargarDesdeSupabase, datos.empleados]);
+  }, [cargarDesdeSupabase, setDatos, actorDemo]);
 
   return useMemo(() => ({
     datos,
@@ -975,13 +976,13 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     guardarEmpleado,
     cambiarEstadoEmpleado,
     eliminarEmpleado,
-    generarSaldosAnio,
     guardarSolicitud,
     eliminarSolicitud,
     cambiarEstadoSolicitud,
     cancelarDiasSolicitud,
     revisarSolicitud,
     obtenerRevisiones,
+    consultarHistorial,
     solicitarEdicion,
     aplicarEdicion,
     rechazarEdicion,
@@ -989,5 +990,5 @@ export function useVacationSystem(habilitado: boolean, anio: number) {
     eliminarCatalogo,
     guardarFestivo,
     eliminarFestivo,
-  }), [actualizando, cambiarEstadoEmpleado, cambiarEstadoSolicitud, cancelarDiasSolicitud, cargando, cargarDesdeSupabase, datos, eliminarCatalogo, eliminarEmpleado, eliminarFestivo, eliminarSolicitud, error, generarSaldosAnio, guardarCatalogo, guardarEmpleado, guardarFestivo, guardarSolicitud, obtenerRevisiones, rechazarEdicion, revisarSolicitud, solicitarEdicion, aplicarEdicion]);
+  }), [consultarHistorial, actualizando, cambiarEstadoEmpleado, cambiarEstadoSolicitud, cancelarDiasSolicitud, cargando, cargarDesdeSupabase, datos, eliminarCatalogo, eliminarEmpleado, eliminarFestivo, eliminarSolicitud, error, guardarCatalogo, guardarEmpleado, guardarFestivo, guardarSolicitud, obtenerRevisiones, rechazarEdicion, revisarSolicitud, solicitarEdicion, aplicarEdicion]);
 }

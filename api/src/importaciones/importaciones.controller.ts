@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Post,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -15,7 +16,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Express } from 'express';
-import { AuthGuard } from '../common/auth.guard';
+import { AuthGuard, type SolicitudAutenticada } from '../common/auth.guard';
 import { ImportacionesService } from './importaciones.service';
 
 @ApiTags('importaciones')
@@ -40,7 +41,10 @@ export class ImportacionesController {
     },
   })
   @ApiOperation({ summary: 'Valida e importa el CSV histórico de vacaciones' })
-  importarVacaciones(@UploadedFile() archivo?: Express.Multer.File) {
+  importarVacaciones(
+    @Req() solicitud: SolicitudAutenticada,
+    @UploadedFile() archivo?: Express.Multer.File,
+  ) {
     if (!archivo)
       throw new BadRequestException(
         'Adjunta un archivo en el campo "archivo".',
@@ -48,6 +52,6 @@ export class ImportacionesController {
     if (!archivo.originalname.toLowerCase().endsWith('.csv')) {
       throw new BadRequestException('El archivo debe tener extensión .csv.');
     }
-    return this.importaciones.importar(archivo);
+    return this.importaciones.importar(archivo, solicitud.sesion!.usuarioId);
   }
 }

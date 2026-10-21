@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { antiguedadEnAnio, diasPorDerechoEnAnio, diasVacacionesLft } from "../app/lib/antiguedad.ts";
+import { aniversarioEnAnio, antiguedadEnAnio, diasOtorgadosAl, diasPorDerechoEnAnio, diasVacacionesLft } from "../app/lib/antiguedad.ts";
 
 test("días por derecho según el art. 76 de la LFT", () => {
   const esperado = new Map([
@@ -18,4 +18,14 @@ test("la antigüedad es la que se cumple dentro del año", () => {
   assert.equal(diasPorDerechoEnAnio("2025-10-20", 2026), 12);
   assert.equal(diasPorDerechoEnAnio("2024-05-10", 2027), 16);
   assert.equal(diasPorDerechoEnAnio("2027-02-01", 2027), 0);
+});
+
+test("los días por derecho se otorgan en el aniversario", () => {
+  assert.equal(aniversarioEnAnio("2024-05-10", 2027), "2027-05-10");
+  assert.equal(aniversarioEnAnio("2024-02-29", 2027), "2027-02-28");
+  assert.equal(aniversarioEnAnio("2024-02-29", 2028), "2028-02-29");
+  assert.equal(diasOtorgadosAl("2024-05-10", 2027, "2027-05-09"), 0);
+  assert.equal(diasOtorgadosAl("2024-05-10", 2027, "2027-05-10"), 16);
+  assert.equal(diasOtorgadosAl("2027-02-01", 2027, "2027-12-31"), 0);
+  assert.equal(diasOtorgadosAl(undefined, 2027, "2027-12-31"), undefined);
 });

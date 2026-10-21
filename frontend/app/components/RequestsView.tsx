@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarPlus, Check, CircleX, Clock, Eye, Pencil, Plus, Search, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
+import { PanelHistorial } from "./HistoryView";
+import { historialSolicitudExistente, type ConsultarHistorial } from "../lib/historial";
 import { Select } from "./Select";
 import { separarUrgencia } from "../lib/urgente";
 import { siguienteDiaHabil } from "../lib/diaHabil";
 import { ANTICIPACION_MINIMA_DIAS, AvisoSinAnticipacion, PanelExtemporaneo, reglasAnticipacion } from "./RegistroExtemporaneo";
-import { AtenderEdicionModal, HistorialEdiciones, SolicitarEdicionModal } from "./EdicionSolicitud";
+import { AtenderEdicionModal, SolicitarEdicionModal } from "./EdicionSolicitud";
 import type {
   DatosVacaciones,
   DecisionRevision,
@@ -24,6 +26,7 @@ import type {
 type EtapaAccionable = Exclude<EtapaAprobacion, "aprobada" | "rechazada">;
 
 interface RequestsViewProps {
+  consultarHistorial: ConsultarHistorial;
   datos: DatosVacaciones;
   perfil: PerfilUsuario | null;
   actualizando: boolean;
@@ -204,7 +207,8 @@ function CancelarDiasModal({ solicitud, onClose, onConfirm, actualizando }: {
   );
 }
 
-function DetailDrawer({ solicitud, empleado, ediciones, onClose, onObtenerRevisiones }: {
+function DetailDrawer({ solicitud, empleado, ediciones, onClose, onObtenerRevisiones, consultarHistorial }: {
+  consultarHistorial: ConsultarHistorial;
   solicitud: SolicitudAusencia;
   empleado: Empleado | undefined;
   ediciones: EdicionSolicitud[];
@@ -240,34 +244,15 @@ function DetailDrawer({ solicitud, empleado, ediciones, onClose, onObtenerRevisi
         {solicitud.comentarios && <div className="form-grid"><label><span>{separarUrgencia(solicitud.comentarios).urgente ? <>Motivo de la urgencia <EtiquetaUrgente /></> : "Comentario del empleado"}</span><p className="empty-note" style={{ textAlign: "left" }}>{separarUrgencia(solicitud.comentarios).texto || "—"}</p></label></div>}
         {solicitud.cancelacion && <div className="form-grid"><label><span>Días cancelados y reintegrados{solicitud.cancelacion.canceladoEn ? ` el ${format(parseISO(solicitud.cancelacion.canceladoEn), "d MMM yyyy", { locale: es })}` : ""}{solicitud.cancelacion.canceladoPor ? ` · ${solicitud.cancelacion.canceladoPor}` : ""}</span><p className="empty-note" style={{ textAlign: "left" }}>{solicitud.cancelacion.motivo}</p></label></div>}
 
-        <div className="form-section-title"><Clock size={16} /><span>Historial de aprobaciones</span></div>
-        {revisiones === null ? (
-          <p className="empty-note">Cargando historial…</p>
-        ) : revisiones.length === 0 ? (
-          <p className="empty-note">Todavía no hay decisiones registradas; está pendiente de {NOMBRE_ETAPA[(solicitud.etapaAprobacion in NOMBRE_ETAPA ? solicitud.etapaAprobacion : "rrhh") as EtapaAccionable]}.</p>
-        ) : (
-          <div className="timeline-list">
-            {revisiones.map((revision) => (
-              <article key={revision.id}>
-                <div className="timeline-date"><strong>{format(parseISO(revision.creadoEn), "dd")}</strong><span>{format(parseISO(revision.creadoEn), "MMM", { locale: es })}</span></div>
-                <div className="timeline-copy">
-                  <strong>{NOMBRE_ETAPA[revision.etapa]}{revision.nombreRevisor ? ` · ${revision.nombreRevisor}` : ""}</strong>
-                  <span>{revision.comentario || "Sin comentario"}</span>
-                </div>
-                <span className={`status-pill ${revision.decision === "aprobado" ? "aprobada" : "rechazada"}`}>{revision.decision === "aprobado" ? "Aprobado" : "Rechazado"}</span>
-              </article>
-            ))}
-          </div>
-        )}
-        <div className="form-section-title"><Pencil size={16} /><span>Historial de ediciones</span></div>
-        <HistorialEdiciones ediciones={ediciones} />
+        <div className="form-section-title"><Clock size={16} /><span>Historial de la solicitud</span></div>
+        <PanelHistorial key={solicitud.id} consultar={consultarHistorial} filtros={{ solicitudId: solicitud.id }} respaldo={historialSolicitudExistente(solicitud, revisiones ?? [], ediciones)} />
         <footer><button className="secondary-button" type="button" onClick={onClose} title="Cerrar">Cerrar</button></footer>
       </div>
     </div>
   );
 }
 
-export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar, onObtenerRevisiones, onCancelarDias, onDelete, onSolicitarEdicion, onAplicarEdicion, onRechazarEdicion }: RequestsViewProps) {
+export function RequestsView({ consultarHistorial, datos, perfil, actualizando, onCreate, onRevisar, onObtenerRevisiones, onCancelarDias, onDelete, onSolicitarEdicion, onAplicarEdicion, onRechazarEdicion }: RequestsViewProps) {
   const [busqueda, setBusqueda] = useState("");
   const [estado, setEstado] = useState("");
   const [formulario, setFormulario] = useState<SolicitudFormulario | null>(null);
@@ -277,13 +262,19 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
   const [cancelacionActiva, setCancelacionActiva] = useState<SolicitudAusencia | null>(null);
 
   const edicionPendienteDe = (solicitudId: string) => datos.ediciones.find((item) => item.solicitudId === solicitudId && item.estado === "pendiente");
-  const solicitudes = useMemo(() => solicitudesVisibles(perfil, datos.solicitudes, datos.empleados)
+  const visibles = useMemo(() => solicitudesVisibles(perfil, datos.solicitudes, datos.empleados), [datos.empleados, datos.solicitudes, perfil]);
+  const solicitudes = useMemo(() => visibles
     .filter((solicitud) => !estado || (estado === "edicion"
       ? datos.ediciones.some((item) => item.solicitudId === solicitud.id && item.estado === "pendiente")
       : solicitud.estado === estado))
     .filter((solicitud) => solicitud.nombreEmpleado.toLowerCase().includes(busqueda.toLowerCase()))
-    .sort((a, b) => b.fechaInicio.localeCompare(a.fechaInicio)), [busqueda, datos.ediciones, datos.empleados, datos.solicitudes, estado, perfil]);
-  const edicionesPorAtender = perfil?.rol === "administrador" ? datos.ediciones.filter((item) => item.estado === "pendiente").length : 0;
+    .sort((a, b) => b.fechaInicio.localeCompare(a.fechaInicio)), [busqueda, datos.ediciones, estado, visibles]);
+  // Solo cuentan las ediciones que se pueden atender desde esta lista: el
+  // administrador también recibe las de solicitudes eliminadas o de otro año,
+  // que no aparecen en la tabla y dejaban el aviso sin forma de quitarse.
+  const edicionesPorAtender = perfil?.rol === "administrador"
+    ? visibles.filter((solicitud) => edicionPendienteDe(solicitud.id)).length
+    : 0;
 
   const empleadoDe = (solicitud: SolicitudAusencia) => datos.empleados.find((item) => item.id === solicitud.empleadoId);
   const esAutoservicio = perfil?.rol === "empleado";
@@ -447,7 +438,8 @@ export function RequestsView({ datos, perfil, actualizando, onCreate, onRevisar,
 
       {detalleActivo && (
         <DetailDrawer
-          solicitud={detalleActivo}
+          consultarHistorial={consultarHistorial}
+          solicitud={datos.solicitudes.find(item => item.id === detalleActivo.id) ?? detalleActivo}
           empleado={empleadoDe(detalleActivo)}
           ediciones={datos.ediciones.filter((item) => item.solicitudId === detalleActivo.id)}
           onClose={() => setDetalleActivo(null)}

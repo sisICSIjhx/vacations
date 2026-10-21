@@ -73,8 +73,8 @@ export class AccesosService {
     }));
   }
 
-  async crear(dto: CrearAccesoDto) {
-    const admin = this.supabase.administrador();
+  async crear(dto: CrearAccesoDto, actorId?: string) {
+    const admin = this.supabase.administrador(actorId);
     const db = admin.schema('vacaciones');
 
     const { data: empleado, error: errorEmpleado } = await db
@@ -201,14 +201,18 @@ export class AccesosService {
     }
   }
 
-  async actualizar(usuarioId: string, dto: ActualizarAccesoDto) {
-    const db = this.supabase.administrador().schema('vacaciones');
+  async actualizar(
+    usuarioId: string,
+    dto: ActualizarAccesoDto,
+    actorId?: string,
+  ) {
+    const db = this.supabase.administrador(actorId).schema('vacaciones');
     const cambios: Record<string, unknown> = {};
     if (dto.rol) cambios.rol = dto.rol;
     if (dto.activo !== undefined) cambios.activo = dto.activo;
     if (dto.empleadoId) cambios.empleado_id = dto.empleadoId;
 
-    if (dto.correo) await this.cambiarCorreo(usuarioId, dto.correo);
+    if (dto.correo) await this.cambiarCorreo(usuarioId, dto.correo, actorId);
 
     const meta: Record<string, boolean> = {};
     if (dto.permitirCambioContrasena !== undefined) {
@@ -222,6 +226,22 @@ export class AccesosService {
         .administrador()
         .auth.admin.updateUserById(usuarioId, { app_metadata: meta });
       if (errorMeta) throw new UnprocessableEntityException(errorMeta.message);
+    }
+    if (Object.keys(meta).length || dto.correo) {
+      await this.registrarCambioAcceso(
+        actorId,
+        usuarioId,
+        'acceso_actualizado',
+        {
+          ...(dto.correo ? { correoInicioSesion: dto.correo } : {}),
+          ...(dto.permitirCambioContrasena === undefined
+            ? {}
+            : { permitirCambioContrasena: dto.permitirCambioContrasena }),
+          ...(dto.forzarCambioContrasena === undefined
+            ? {}
+            : { forzarCambioContrasena: dto.forzarCambioContrasena }),
+        },
+      );
     }
     if (!Object.keys(cambios).length) {
       return { actualizado: Object.keys(meta).length > 0 || !!dto.correo };
@@ -238,8 +258,12 @@ export class AccesosService {
   // Cambia el correo de inicio de sesión sin enviar confirmación: el
   // administrador ya lo validó. La contraseña no cambia. Si el correo de
   // avisos del empleado era el mismo, se actualiza también.
-  private async cambiarCorreo(usuarioId: string, correoNuevo: string) {
-    const admin = this.supabase.administrador();
+  private async cambiarCorreo(
+    usuarioId: string,
+    correoNuevo: string,
+    actorId?: string,
+  ) {
+    const admin = this.supabase.administrador(actorId);
     const correo = correoNuevo.trim().toLowerCase();
 
     const { data: actual, error: errorActual } =
@@ -284,6 +308,7 @@ export class AccesosService {
     usuarioId: string,
     permitirCambio?: boolean,
     forzarCambio?: boolean,
+    actorId?: string,
   ) {
     const admin = this.supabase.administrador();
     const contrasena = this.generarContrasena();
@@ -295,6 +320,11 @@ export class AccesosService {
       permitirCambio,
       forzarCambio: forzarCambio ?? false,
     });
+    await this.registrarCambioAcceso(
+      actorId,
+      usuarioId,
+      'contrasena_restablecida',
+    );
     return { contrasena };
   }
 
@@ -336,7 +366,36 @@ export class AccesosService {
     await this.guardarContrasena(admin, usuarioId, contrasenaNueva, {
       forzarCambio: false,
     });
+    await this.registrarCambioAcceso(
+      usuarioId,
+      usuarioId,
+      'contrasena_cambiada',
+    );
     return { actualizado: true };
+  }
+
+  private async registrarCambioAcceso(
+    actorId: string | undefined,
+    usuarioId: string,
+    accion: string,
+    cambios: Record<string, unknown> = {},
+  ) {
+    if (!actorId)
+      throw new UnprocessableEntityException(
+        'Falta la identidad del autor para registrar el cambio de acceso.',
+      );
+    const { error } = await this.supabase
+      .administrador(actorId)
+      .schema('vacaciones')
+      .rpc('registrar_cambio_acceso', {
+        p_usuario: usuarioId,
+        p_accion: accion,
+        p_cambios: cambios,
+      });
+    if (error)
+      throw new UnprocessableEntityException(
+        'El acceso cambió, pero no pudo registrarse su historial. Contacta a Administración antes de repetir la operación.',
+      );
   }
 
   async verContrasena(usuarioId: string) {

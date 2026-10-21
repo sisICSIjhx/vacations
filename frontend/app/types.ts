@@ -3,6 +3,7 @@ export type VistaId =
   | "calendario"
   | "personal"
   | "solicitudes"
+  | "historial"
   | "catalogos";
 
 export type EstadoSolicitud =
@@ -192,6 +193,8 @@ export interface EmpleadoFormulario {
   diasDisponibles: number;
   // Sin saldo en el año: disponibles se calcula como derecho + acumulados.
   saldoNuevo?: boolean;
+  saldoAnterior?: { diasPorDerecho: number; diasAcumulados: number; diasDisponibles: number };
+  motivoAjuste?: string;
 }
 
 export interface SolicitudFormulario {

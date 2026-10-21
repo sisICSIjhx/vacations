@@ -23,4 +23,4 @@ npm run lint
 npm test
 ```
 
-El proyecto usa Vinext para producir el artefacto compatible con Sites.
+El proyecto usa Next.js 16; los comandos y versiones vigentes están en `package.json`.

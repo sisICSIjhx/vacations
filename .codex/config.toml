@@ -1,0 +1,13 @@
+# CodeGraph local del proyecto. Requiere npm ci en la raíz.
+[mcp_servers.codegraph]
+command = "cmd.exe"
+args = ["/d", "/c", "node_modules\\.bin\\codegraph.cmd", "serve", "--mcp", "--path", "."]
+cwd = 'C:\Users\sistemas\Documents\SISTEMAS\VACACIONES'
+startup_timeout_sec = 30
+tool_timeout_sec = 60
+enabled_tools = ["codegraph_explore"]
+
+[mcp_servers.codegraph.env]
+CODEGRAPH_TELEMETRY = "0"
+DO_NOT_TRACK = "1"
+CODEGRAPH_NO_DOWNLOAD = "1"

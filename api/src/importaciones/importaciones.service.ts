@@ -33,7 +33,7 @@ interface EmpleadoImportacion {
 export class ImportacionesService {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async importar(archivo: Express.Multer.File) {
+  async importar(archivo: Express.Multer.File, actorId?: string) {
     let filas: FilaCsv[];
     try {
       filas = parse(archivo.buffer, {
@@ -52,7 +52,7 @@ export class ImportacionesService {
     if (!filas.length)
       throw new BadRequestException('El CSV no contiene filas para importar.');
 
-    const cliente = this.supabase.administrador();
+    const cliente = this.supabase.administrador(actorId);
     const db = cliente.schema('vacaciones');
     const hash = createHash('sha256').update(archivo.buffer).digest('hex');
 
