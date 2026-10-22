@@ -17,3 +17,24 @@ api/.env*
 /.codegraph/
 
 /.claude/settings.local.json
+
+# Herramientas de IA, contexto y memoria (no forman parte de la aplicación)
+/.agents/
+/.claude/skills/
+/.claude/settings.json
+/.mcp.json
+/AGENTS.md
+/CLAUDE.md
+/HISTORIAL.md
+/codegraph.json
+/docs/CONTEXTO_PROYECTO.md
+/docs/GUIA_INSTALACION_IA_PARA_CLAUDE.md
+/docs/MEMORIA_Y_ESPECIFICACIONES.md
+
+# Material de la guía de uso (capturas, flyers, presentaciones, correos)
+/docs/guia-de-uso/
+
+# Planificación OpenSpec local
+/openspec/changes/*
+!/openspec/changes/archive/
+/openspec/specs/

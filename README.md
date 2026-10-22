@@ -12,8 +12,8 @@ flowchart LR
   D -->|"clave secreta, después de verificar rol"| C
 ```
 
-- `frontend/`: React 19 + Vinext, panel, calendario, filtros, formularios, modo claro/oscuro y datos demostrativos cuando no hay variables de Supabase.
-- `api/`: NestJS. Solo atiende `/salud`, documentación Swagger e importación CSV administrativa.
+- `frontend/`: React 19 + Next.js 16, panel, calendario, filtros, formularios, modo claro/oscuro y datos demostrativos cuando no hay variables de Supabase.
+- `api/`: NestJS. Atiende `/salud`, documentación Swagger, importación CSV administrativa y gestión de accesos/cuenta.
 - `database/001_esquema_inicial.sql`: esquema completo, datos base, vistas, RPC, índices y políticas RLS.
 - `database/diagrama_vacaciones.dbml`: modelo para pegar en dbdiagram.io.
 
@@ -58,4 +58,16 @@ npm run build
 npm test -- --runInBand
 npm run test:e2e -- --runInBand
 ```
+
+## Memoria y especificaciones
+
+- [Contexto breve y mapa de archivos](docs/CONTEXTO_PROYECTO.md).
+- [Historial de cambios y decisiones](HISTORIAL.md).
+- [Uso de memoria, ahorro de contexto y OpenSpec](docs/MEMORIA_Y_ESPECIFICACIONES.md).
+- [Guía para que Claude reproduzca la instalación en otro proyecto](docs/GUIA_INSTALACION_IA_PARA_CLAUDE.md).
+- [Instrucciones para agentes](AGENTS.md).
+
+OpenSpec se instala en la raíz con `npm ci` (herramientas de desarrollo). Validar las especificaciones con `npm run spec:check`; ver capacidades con `npm run spec:list`.
+
+CodeGraph también se instala con ese `npm ci`. Consultar el estado con `npm run graph:status` y buscar código con `npm run graph -- explore "consulta" --max-files 3`. La conexión de Codex está en `.codex/config.toml`; el índice local y las exclusiones se explican en la guía de memoria.
 
