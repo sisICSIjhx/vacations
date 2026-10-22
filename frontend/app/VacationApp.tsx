@@ -71,7 +71,10 @@ async function obtenerPerfilAcceso(usuarioId: string): Promise<PerfilUsuario | n
     .select("usuario_id,empleado_id,nombre_visible,rol,activo")
     .eq("usuario_id", usuarioId)
     .maybeSingle();
-  if (error || !data) return null;
+  // Un fallo de consulta (red, token en renovación) NO equivale a «sin perfil»:
+  // se propaga para que quien llama no cierre una sesión válida.
+  if (error) throw error;
+  if (!data) return null;
 
   let esJefeInmediato = false;
   if (data.rol === "empleado" && data.empleado_id) {
@@ -118,9 +121,16 @@ function LoginScreen({ onDemo }: { onDemo: () => void }) {
     setError(null);
     const { data, error: loginError } = await supabase.auth.signInWithPassword({ email: correo, password: contrasena });
     if (loginError) setError(loginError.message);
-    else if (data.user && !puedeAccederPanel(await obtenerPerfilAcceso(data.user.id))) {
-      await supabase.auth.signOut();
-      setError("Esta cuenta no tiene acceso al panel administrativo.");
+    else if (data.user) {
+      try {
+        if (!puedeAccederPanel(await obtenerPerfilAcceso(data.user.id))) {
+          await supabase.auth.signOut();
+          setError("Esta cuenta no tiene acceso al panel administrativo.");
+        }
+      } catch {
+        await supabase.auth.signOut({ scope: "local" });
+        setError("No se pudo verificar el acceso. Revisa tu conexión e inténtalo de nuevo.");
+      }
     }
     setCargando(false);
   };
@@ -283,15 +293,39 @@ export default function VacationApp() {
   useEffect(() => {
     const supabase = obtenerSupabase();
     if (!supabase) return;
-    void supabase.auth.getSession().then(async ({ data }) => {
-      const guardada = data.session ? await sesionVigente(supabase, data.session) : null;
-      const perfil = guardada ? await obtenerPerfilAcceso(guardada.user.id) : null;
-      const valida = puedeAccederPanel(perfil);
-      setSesion(valida ? guardada : null);
-      setPerfilSesion(valida ? perfil : null);
-      if (guardada && !valida) await supabase.auth.signOut();
-      setVerificandoSesion(false);
-    });
+    let activo = true;
+    // Reintenta ante fallos transitorios; solo devuelve null si el perfil
+    // realmente no existe, y lanza si no se pudo consultar.
+    const perfilConReintentos = async (usuarioId: string) => {
+      let ultimoError: unknown;
+      for (let intento = 0; intento < 3; intento++) {
+        try {
+          return await obtenerPerfilAcceso(usuarioId);
+        } catch (e) {
+          ultimoError = e;
+          await new Promise((r) => setTimeout(r, 600 * (intento + 1)));
+        }
+      }
+      throw ultimoError;
+    };
+    void (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const guardada = data.session ? await sesionVigente(supabase, data.session) : null;
+        const perfil = guardada ? await perfilConReintentos(guardada.user.id) : null;
+        if (!activo) return;
+        const valida = puedeAccederPanel(perfil);
+        setSesion(valida ? guardada : null);
+        setPerfilSesion(valida ? perfil : null);
+        if (guardada && !valida) await supabase.auth.signOut();
+      } catch {
+        // No se pudo verificar: se muestra el login sin destruir la sesión
+        // guardada, de modo que un nuevo intento la recupere.
+        if (activo) { setSesion(null); setPerfilSesion(null); }
+      } finally {
+        if (activo) setVerificandoSesion(false);
+      }
+    })();
     const { data } = supabase.auth.onAuthStateChange((evento, nuevaSesion) => {
       // La sesión inicial la resuelve getSession con el usuario leído del
       // servidor; aquí llegaría la copia del navegador, con datos viejos.
@@ -302,14 +336,31 @@ export default function VacationApp() {
         setContrasenaActualizada(false);
         return;
       }
-      void obtenerPerfilAcceso(nuevaSesion.user.id).then(async (perfil) => {
-        const valida = puedeAccederPanel(perfil);
-        setSesion(valida ? nuevaSesion : null);
-        setPerfilSesion(valida ? perfil : null);
-        if (!valida) await supabase.auth.signOut();
-      });
+      // La renovación del token y el regreso a la pestaña no cambian el perfil:
+      // se actualiza la sesión sin volver a consultar ni arriesgar un cierre.
+      if (evento === "TOKEN_REFRESHED") {
+        setSesion(nuevaSesion);
+        return;
+      }
+      // Diferido: no se debe esperar a Supabase dentro de este callback.
+      window.setTimeout(() => {
+        void perfilConReintentos(nuevaSesion.user.id).then(async (perfil) => {
+          if (!activo) return;
+          const valida = puedeAccederPanel(perfil);
+          if (!valida) {
+            setSesion(null);
+            setPerfilSesion(null);
+            await supabase.auth.signOut();
+            return;
+          }
+          setSesion(nuevaSesion);
+          setPerfilSesion(perfil);
+        }).catch(() => {
+          // Fallo transitorio: se conservan la sesión y el perfil actuales.
+        });
+      }, 0);
     });
-    return () => data.subscription.unsubscribe();
+    return () => { activo = false; data.subscription.unsubscribe(); };
   }, []);
 
   const autorizado = supabaseConfigurado ? Boolean(sesion) : demoAutorizada;
