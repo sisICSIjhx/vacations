@@ -14,6 +14,7 @@ import { EmployeeFocus } from "./components/EmployeeFocus";
 import { EmployeesView } from "./components/EmployeesView";
 import { AvisoSinAnticipacion, PanelExtemporaneo, reglasAnticipacion } from "./components/RegistroExtemporaneo";
 import { RequestsView } from "./components/RequestsView";
+import { ResumenSolicitud } from "./components/ResumenSolicitud";
 import { HistoryView } from "./components/HistoryView";
 import { Select } from "./components/Select";
 import { YearCalendar } from "./components/YearCalendar";
@@ -181,7 +182,15 @@ function Sidebar({ vista, opcionesPrincipales, opciones, solicitudesActivas, abi
 function RequestModal({ datos, perfil, actualizando, onClose, onCreate }: { datos: DatosVacaciones; perfil: PerfilUsuario | null; actualizando: boolean; onClose: () => void; onCreate: (formulario: SolicitudFormulario) => Promise<boolean> }) {
   const esAutoservicio = perfil?.rol === "empleado";
   const [formulario, setFormulario] = useState<SolicitudFormulario>({ empleadoId: esAutoservicio ? perfil?.empleadoId ?? "" : "", fechaInicio: "", fechaFin: "", fechaReintegro: "", comentarios: "" });
-  const actualizar = (campo: keyof SolicitudFormulario, valor: string) => setFormulario((actual) => ({ ...actual, [campo]: valor, ...(campo === "fechaFin" ? { fechaReintegro: siguienteDiaHabil(valor) } : {}) }));
+  const actualizar = (campo: keyof SolicitudFormulario, valor: string) => setFormulario((actual) => {
+    const siguiente = { ...actual, [campo]: valor };
+    // El reintegro sugerido depende del descanso y la sede del empleado.
+    if (campo === "fechaFin" || (campo === "empleadoId" && siguiente.fechaFin)) {
+      const empleado = datos.empleados.find((emp) => emp.id === siguiente.empleadoId);
+      siguiente.fechaReintegro = siguienteDiaHabil(siguiente.fechaFin, empleado?.diaDescanso, datos.diasFestivos, empleado?.sedeId);
+    }
+    return siguiente;
+  });
   const opcionesEmpleado = esAutoservicio ? datos.empleados.filter((emp) => emp.id === perfil?.empleadoId) : datos.empleados;
   const empleadoElegido = datos.empleados.find((emp) => emp.id === formulario.empleadoId);
   // Una cuenta de autoservicio sin empleado_id vinculado en perfiles_usuario
@@ -214,7 +223,7 @@ function RequestModal({ datos, perfil, actualizando, onClose, onCreate }: { dato
                   )}
                 </>
               )}
-              <label><span>Inicio *</span><input required type="date" value={formulario.fechaInicio} onChange={(e) => actualizar("fechaInicio", e.target.value)} /></label><label><span>Fin *</span><input required type="date" min={formulario.fechaInicio} value={formulario.fechaFin} onChange={(e) => actualizar("fechaFin", e.target.value)} /></label><label><span>Reintegro *</span><input required type="date" min={formulario.fechaFin} value={formulario.fechaReintegro} onChange={(e) => actualizar("fechaReintegro", e.target.value)} title="Por defecto, el siguiente día hábil; puede ser el mismo día de la fecha final" /></label><div className="field-slot" style={{ display: "flex", flexDirection: "column" }}><span style={{ display: "block", marginBottom: 6, color: "var(--muted)", fontSize: 12, fontWeight: 650 }}>Tipo de solicitud</span><button type="button" className="secondary-button" aria-pressed={!!formulario.urgente} title="Marca la solicitud como no planeada; el comentario será obligatorio" onClick={() => setFormulario((actual) => ({ ...actual, urgente: !actual.urgente }))} style={{ width: "100%", minHeight: 48, justifyContent: "center", ...(formulario.urgente ? { background: "#fdecea", borderColor: "#d93025", color: "#b3261e" } : {}) }}>{formulario.urgente ? "🚨 Urgente" : "Marcar como urgente"}</button></div><label className="span-two"><span>Comentarios{formulario.urgente ? " *" : ""}</span><textarea required={!!formulario.urgente} rows={3} value={formulario.comentarios} onChange={(e) => actualizar("comentarios", e.target.value)} placeholder={formulario.urgente ? "Explica el motivo urgente (obligatorio)" : undefined} /></label>
+              <label><span>Inicio *</span><input required type="date" value={formulario.fechaInicio} onChange={(e) => actualizar("fechaInicio", e.target.value)} /></label><label><span>Fin *</span><input required type="date" min={formulario.fechaInicio} value={formulario.fechaFin} onChange={(e) => actualizar("fechaFin", e.target.value)} /></label><label><span>Reintegro *</span><input required type="date" min={formulario.fechaFin} value={formulario.fechaReintegro} onChange={(e) => actualizar("fechaReintegro", e.target.value)} title="Por defecto, el siguiente día laboral del empleado (sin su descanso ni festivos); puede ser el mismo día de la fecha final" /></label><div className="field-slot" style={{ display: "flex", flexDirection: "column" }}><span style={{ display: "block", marginBottom: 6, color: "var(--muted)", fontSize: 12, fontWeight: 650 }}>Tipo de solicitud</span><button type="button" className="secondary-button" aria-pressed={!!formulario.urgente} title="Marca la solicitud como no planeada; el comentario será obligatorio" onClick={() => setFormulario((actual) => ({ ...actual, urgente: !actual.urgente }))} style={{ width: "100%", minHeight: 48, justifyContent: "center", ...(formulario.urgente ? { background: "#fdecea", borderColor: "#d93025", color: "#b3261e" } : {}) }}>{formulario.urgente ? "🚨 Urgente" : "Marcar como urgente"}</button></div><ResumenSolicitud formulario={formulario} empleado={empleadoElegido} festivos={datos.diasFestivos} solicitudes={datos.solicitudes} descuentaSaldo={reglas.descuentaSaldo} autoservicio={esAutoservicio} /><label className="span-two"><span>Comentarios{formulario.urgente ? " *" : ""}</span><textarea required={!!formulario.urgente} rows={3} value={formulario.comentarios} onChange={(e) => actualizar("comentarios", e.target.value)} placeholder={formulario.urgente ? "Explica el motivo urgente (obligatorio)" : undefined} /></label>
             </div>
             <PanelExtemporaneo formulario={formulario} reglas={reglas} onChange={(cambios) => setFormulario((actual) => ({ ...actual, ...cambios }))} />
             {reglas.sinAnticipacion && <AvisoSinAnticipacion />}

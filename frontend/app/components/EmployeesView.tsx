@@ -387,7 +387,10 @@ export function EmployeesView({ datos, anio, actualizando, onSave, onToggleEstad
     : derechoLft === 0
       ? `Sin días por derecho en ${anio}: cumple su primer año en ${anio + 1}.`
       : aniversario > hoy
-        ? `El ${format(parseISO(aniversario), "d 'de' MMMM yyyy", { locale: es })} cumple ${antiguedadFormulario} año(s) y se le sumarán ${derechoLft} día(s) por derecho automáticamente.`
+        // Si RRHH ya capturó los días, 028 no los vuelve a sumar; solo se usan desde el aniversario.
+        ? (formulario?.diasPorDerecho ?? 0) > 0
+          ? `Los ${formulario?.diasPorDerecho} día(s) por derecho de ${anio} corresponden a los ${antiguedadFormulario} año(s) que cumple el ${format(parseISO(aniversario), "d 'de' MMMM yyyy", { locale: es })}: se pueden usar a partir de esa fecha.`
+          : `El ${format(parseISO(aniversario), "d 'de' MMMM yyyy", { locale: es })} cumple ${antiguedadFormulario} año(s) y se le sumarán ${derechoLft} día(s) por derecho automáticamente; podrá usarlos desde esa fecha.`
         : `${derechoLft} día(s) por derecho otorgados el ${format(parseISO(aniversario), "d 'de' MMMM yyyy", { locale: es })} por ${antiguedadFormulario} año(s) de antigüedad.`;
   const accesoDe = (empleado: Empleado) => accesos.find((item) => item.empleadoId === empleado.id);
 

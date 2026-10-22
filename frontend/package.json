@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "npm run build && node --experimental-strip-types --test tests/rendered-html.test.mjs tests/antiguedad.test.mjs tests/historial.test.mjs tests/ajuste-saldo.test.mjs",
+    "test": "npm run build && node --experimental-strip-types --test tests/rendered-html.test.mjs tests/antiguedad.test.mjs tests/historial.test.mjs tests/ajuste-saldo.test.mjs tests/proyeccion-saldo.test.mjs tests/dia-habil.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {

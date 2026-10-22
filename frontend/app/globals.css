@@ -453,6 +453,11 @@ p { color: var(--muted); line-height: 1.55; }
 .mini-stat { padding: 10px; border-radius: 9px; background: var(--surface-soft); }
 .mini-stat strong { display: block; font-size: 17px; }
 .mini-stat span { color: var(--muted); font-size: 8px; }
+.request-summary { display: grid; gap: 8px; padding: 12px; border: 1px solid color-mix(in srgb, var(--navy) 18%, var(--line)); border-radius: 9px; background: var(--blue-soft); }
+.request-summary .mini-stat { background: var(--surface); }
+.request-summary .mini-stat.saldo-insuficiente strong { color: var(--red); }
+.request-summary p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.request-summary .request-summary-alert { color: var(--red); font-weight: 650; }
 .insight-row { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 9px; }
 .insight-row strong { color: var(--ink); }
 .team-summary { display: grid; grid-template-columns: auto 1fr 1fr; align-items: center; gap: 10px; padding: 13px; border-radius: 10px; background: var(--cyan-soft); }

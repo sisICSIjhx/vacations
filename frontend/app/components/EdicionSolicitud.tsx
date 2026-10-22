@@ -17,21 +17,25 @@ export function textoPeriodo(periodo: PeriodoEdicion): string {
   return `${format(parseISO(periodo.fechaInicio), "d MMM", { locale: es })} → ${format(parseISO(periodo.fechaFin), "d MMM yyyy", { locale: es })}${dias}`;
 }
 
-function CamposPeriodo({ periodo, onChange }: {
+function CamposPeriodo({ periodo, empleado, diasFestivos, onChange }: {
   periodo: { fechaInicio: string; fechaFin: string; fechaReintegro: string };
+  empleado: Empleado | undefined;
+  diasFestivos: DiaFestivo[];
   onChange: (cambios: Partial<{ fechaInicio: string; fechaFin: string; fechaReintegro: string }>) => void;
 }) {
   return (
     <>
       <label><span>Fecha de inicio *</span><input required type="date" value={periodo.fechaInicio} onChange={(e) => onChange({ fechaInicio: e.target.value })} /></label>
-      <label><span>Fecha final *</span><input required type="date" min={periodo.fechaInicio} value={periodo.fechaFin} onChange={(e) => onChange({ fechaFin: e.target.value, fechaReintegro: siguienteDiaHabil(e.target.value) })} /></label>
+      <label><span>Fecha final *</span><input required type="date" min={periodo.fechaInicio} value={periodo.fechaFin} onChange={(e) => onChange({ fechaFin: e.target.value, fechaReintegro: siguienteDiaHabil(e.target.value, empleado?.diaDescanso, diasFestivos, empleado?.sedeId) })} /></label>
       <label><span>Fecha de reintegro *</span><input required type="date" min={periodo.fechaFin} value={periodo.fechaReintegro} onChange={(e) => onChange({ fechaReintegro: e.target.value })} /></label>
     </>
   );
 }
 
-export function SolicitarEdicionModal({ solicitud, actualizando, onClose, onConfirm }: {
+export function SolicitarEdicionModal({ solicitud, empleado, diasFestivos, actualizando, onClose, onConfirm }: {
   solicitud: SolicitudAusencia;
+  empleado: Empleado | undefined;
+  diasFestivos: DiaFestivo[];
   actualizando: boolean;
   onClose: () => void;
   onConfirm: (propuesta: { fechaInicio: string; fechaFin: string; fechaReintegro: string; motivo: string }) => Promise<boolean>;
@@ -39,7 +43,7 @@ export function SolicitarEdicionModal({ solicitud, actualizando, onClose, onConf
   const [periodo, setPeriodo] = useState({
     fechaInicio: solicitud.fechaInicio,
     fechaFin: solicitud.fechaFin,
-    fechaReintegro: solicitud.fechaReintegro ?? siguienteDiaHabil(solicitud.fechaFin),
+    fechaReintegro: solicitud.fechaReintegro ?? siguienteDiaHabil(solicitud.fechaFin, empleado?.diaDescanso, diasFestivos, empleado?.sedeId),
   });
   const [motivo, setMotivo] = useState("");
   const enviar = async (evento: React.FormEvent) => {
@@ -55,7 +59,7 @@ export function SolicitarEdicionModal({ solicitud, actualizando, onClose, onConf
         </header>
         <p className="empty-note">Periodo actual: <strong>{textoPeriodo(solicitud)}</strong>. Indica cómo debe quedar y por qué; el administrador lo revisará y hará el cambio.</p>
         <div className="form-grid two-columns">
-          <CamposPeriodo periodo={periodo} onChange={(cambios) => setPeriodo((actual) => ({ ...actual, ...cambios }))} />
+          <CamposPeriodo periodo={periodo} empleado={empleado} diasFestivos={diasFestivos} onChange={(cambios) => setPeriodo((actual) => ({ ...actual, ...cambios }))} />
           <label className="span-two"><span>Motivo de la edición *</span><textarea required rows={3} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ej. Me equivoqué en la fecha final, regreso el lunes 19" /></label>
         </div>
         <footer>
@@ -81,7 +85,7 @@ export function AtenderEdicionModal({ edicion, solicitud, empleado, diasFestivos
   const [periodo, setPeriodo] = useState({
     fechaInicio: edicion.propuesta.fechaInicio,
     fechaFin: edicion.propuesta.fechaFin,
-    fechaReintegro: edicion.propuesta.fechaReintegro ?? siguienteDiaHabil(edicion.propuesta.fechaFin),
+    fechaReintegro: edicion.propuesta.fechaReintegro ?? siguienteDiaHabil(edicion.propuesta.fechaFin, empleado?.diaDescanso, diasFestivos, empleado?.sedeId),
   });
   const [motivo, setMotivo] = useState("");
   const periodoValido = Boolean(periodo.fechaInicio && periodo.fechaFin && periodo.fechaFin >= periodo.fechaInicio);
@@ -113,7 +117,7 @@ export function AtenderEdicionModal({ edicion, solicitud, empleado, diasFestivos
           <span><strong>Motivo{edicion.solicitadoPor ? ` (registró ${edicion.solicitadoPor})` : ""}:</strong> {edicion.motivo}</span>
         </div>
         <div className="form-grid two-columns">
-          <CamposPeriodo periodo={periodo} onChange={(cambios) => setPeriodo((actual) => ({ ...actual, ...cambios }))} />
+          <CamposPeriodo periodo={periodo} empleado={empleado} diasFestivos={diasFestivos} onChange={(cambios) => setPeriodo((actual) => ({ ...actual, ...cambios }))} />
           <div className="field-slot"><span style={{ display: "block", marginBottom: 6, color: "var(--muted)", fontSize: 12, fontWeight: 650 }}>Días del nuevo periodo</span><strong>{diasNuevos} día(s){ajustada ? " · ajustado por ti" : ""}</strong></div>
           <label className="span-two"><span>Motivo de la edición o del rechazo * (se envía al empleado)</span><textarea required rows={3} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ej. Se corrige la fecha final como lo solicitó" /></label>
         </div>

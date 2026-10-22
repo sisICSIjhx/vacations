@@ -21,6 +21,8 @@ export function reglasAnticipacion(formulario: SolicitudFormulario | null, perfi
     registroExtemporaneo,
     sinAnticipacion: fueraDePlazo && !formulario?.urgente && !registroExtemporaneo,
     yaAprobada,
+    // Igual que guardarSolicitud: solo el registro extemporáneo puede no descontar.
+    descuentaSaldo: !registroExtemporaneo || descontarSaldo,
     preparar: (f: SolicitudFormulario): SolicitudFormulario => registroExtemporaneo
       ? { ...f, extemporanea: true, yaAprobada, descontarSaldo }
       : { ...f, extemporanea: false },

@@ -9,6 +9,7 @@ import { diasVacaciones, siguienteDiaHabil } from "../lib/diaHabil";
 import { cambiosDemo, filtrarHistorial, historialSolicitudExistente, puedeVerEvento, type EventoActividad, type FiltrosHistorial } from "../lib/historial";
 import { consultarHistorialRemoto } from "../lib/consultarHistorial";
 import { cambioSaldo, validarAjusteSaldo } from "../lib/ajusteSaldo";
+import { mensajeUsoDerecho, usoDiasPorDerecho } from "../lib/proyeccionSaldo";
 import type {
   Catalogo,
   DatosVacaciones,
@@ -413,9 +414,9 @@ export function useVacationSystem(habilitado: boolean, anio: number, perfil: Per
       return false;
     }
     const dias = diasVacaciones(formulario.fechaInicio, formulario.fechaFin, empleado.diaDescanso, datos.diasFestivos, empleado.sedeId);
-    // El reintegro lo elige quien captura (por defecto, el siguiente día hábil)
-    // y puede coincidir con la fecha final, pero no ser anterior.
-    const fechaReintegro = formulario.fechaReintegro || siguienteDiaHabil(formulario.fechaFin);
+    // El reintegro lo elige quien captura (por defecto, el siguiente día laboral
+    // del empleado) y puede coincidir con la fecha final, pero no ser anterior.
+    const fechaReintegro = formulario.fechaReintegro || siguienteDiaHabil(formulario.fechaFin, empleado.diaDescanso, datos.diasFestivos, empleado.sedeId);
     if (fechaReintegro < formulario.fechaFin) {
       setError("La fecha de reintegro no puede ser anterior a la fecha final.");
       setActualizando(false);
@@ -440,6 +441,13 @@ export function useVacationSystem(habilitado: boolean, anio: number, perfil: Per
       const aprobadaDirecto = extemporanea && formulario.yaAprobada !== false;
       if (descuenta && dias > empleado.saldo.diasDisponibles) {
         setError(`Saldo insuficiente: la solicitud requiere ${dias} día(s) y el empleado tiene ${empleado.saldo.diasDisponibles} disponible(s).`);
+        setActualizando(false);
+        return false;
+      }
+      // Regla del aniversario (028): la base la valida con un disparador.
+      const usoDerecho = descuenta ? usoDiasPorDerecho(formulario, empleado, datos.solicitudes, datos.diasFestivos, formulario.id) : null;
+      if (usoDerecho?.excedido) {
+        setError(mensajeUsoDerecho(usoDerecho));
         setActualizando(false);
         return false;
       }
@@ -907,7 +915,8 @@ export function useVacationSystem(habilitado: boolean, anio: number, perfil: Per
   const aplicarEdicion = useCallback(async (edicionId: string, formulario: SolicitudFormulario, motivo: string) => {
     setActualizando(true);
     setError(null);
-    const fechaReintegro = formulario.fechaReintegro || siguienteDiaHabil(formulario.fechaFin);
+    const empleadoEdicion = datos.empleados.find((item) => item.id === formulario.empleadoId);
+    const fechaReintegro = formulario.fechaReintegro || siguienteDiaHabil(formulario.fechaFin, empleadoEdicion?.diaDescanso, datos.diasFestivos, empleadoEdicion?.sedeId);
     const comentarios = comentarioConUrgencia(formulario.comentarios, formulario.urgente) || null;
     const supabase = obtenerSupabase();
     if (!supabase) {

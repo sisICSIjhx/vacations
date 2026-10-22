@@ -10,6 +10,7 @@ import { Select } from "./Select";
 import { separarUrgencia } from "../lib/urgente";
 import { siguienteDiaHabil } from "../lib/diaHabil";
 import { ANTICIPACION_MINIMA_DIAS, AvisoSinAnticipacion, PanelExtemporaneo, reglasAnticipacion } from "./RegistroExtemporaneo";
+import { ResumenSolicitud } from "./ResumenSolicitud";
 import { AtenderEdicionModal, SolicitarEdicionModal } from "./EdicionSolicitud";
 import type {
   DatosVacaciones,
@@ -289,7 +290,11 @@ export function RequestsView({ consultarHistorial, datos, perfil, actualizando, 
   const actualizar = (campo: keyof SolicitudFormulario, valor: string) => setFormulario((actual) => {
     if (!actual) return actual;
     const siguiente = { ...actual, [campo]: valor };
-    if (campo === "fechaFin") siguiente.fechaReintegro = siguienteDiaHabil(siguiente.fechaFin);
+    // El reintegro sugerido depende del descanso y la sede del empleado.
+    if (campo === "fechaFin" || (campo === "empleadoId" && siguiente.fechaFin)) {
+      const empleado = datos.empleados.find((emp) => emp.id === siguiente.empleadoId);
+      siguiente.fechaReintegro = siguienteDiaHabil(siguiente.fechaFin, empleado?.diaDescanso, datos.diasFestivos, empleado?.sedeId);
+    }
     return siguiente;
   });
   const reglas = reglasAnticipacion(formulario, perfil, false);
@@ -404,8 +409,9 @@ export function RequestsView({ consultarHistorial, datos, perfil, actualizando, 
               )}
               <label><span>Fecha de inicio *</span><input required type="date" value={formulario.fechaInicio} onChange={(e) => actualizar("fechaInicio", e.target.value)} /></label>
               <label><span>Fecha final *</span><input required type="date" min={formulario.fechaInicio} value={formulario.fechaFin} onChange={(e) => actualizar("fechaFin", e.target.value)} /></label>
-              <label><span>Fecha de reintegro *</span><input required type="date" min={formulario.fechaFin} value={formulario.fechaReintegro} onChange={(e) => actualizar("fechaReintegro", e.target.value)} title="Por defecto, el siguiente día hábil; puede ser el mismo día de la fecha final" /></label>
+              <label><span>Fecha de reintegro *</span><input required type="date" min={formulario.fechaFin} value={formulario.fechaReintegro} onChange={(e) => actualizar("fechaReintegro", e.target.value)} title="Por defecto, el siguiente día laboral del empleado (sin su descanso ni festivos); puede ser el mismo día de la fecha final" /></label>
               <div className="field-slot" style={{ display: "flex", flexDirection: "column" }}><span style={{ display: "block", marginBottom: 6, color: "var(--muted)", fontSize: 12, fontWeight: 650 }}>Tipo de solicitud</span><button type="button" className="secondary-button" aria-pressed={!!formulario.urgente} title="Marca la solicitud como no planeada; el comentario será obligatorio" onClick={() => setFormulario((actual) => actual && { ...actual, urgente: !actual.urgente })} style={{ width: "100%", minHeight: 48, justifyContent: "center", ...(formulario.urgente ? { background: "#fdecea", borderColor: "#d93025", color: "#b3261e" } : {}) }}>{formulario.urgente ? "🚨 Urgente" : "Marcar como urgente"}</button></div>
+              <ResumenSolicitud formulario={formulario} empleado={empleadoElegido} festivos={datos.diasFestivos} solicitudes={datos.solicitudes} descuentaSaldo={reglas.descuentaSaldo} autoservicio={esAutoservicio} />
               <label className="span-two"><span>Comentarios{formulario.urgente ? " *" : ""}</span><textarea required={!!formulario.urgente} rows={3} value={formulario.comentarios} onChange={(e) => actualizar("comentarios", e.target.value)} placeholder={formulario.urgente ? "Explica el motivo urgente (obligatorio)" : "Información relevante para quienes revisan la solicitud"} /></label>
             </div>
             <PanelExtemporaneo formulario={formulario} reglas={reglas} onChange={(cambios) => setFormulario((actual) => actual && { ...actual, ...cambios })} />
@@ -461,6 +467,8 @@ export function RequestsView({ consultarHistorial, datos, perfil, actualizando, 
       ) : (
         <SolicitarEdicionModal
           solicitud={edicionActiva.solicitud}
+          empleado={empleadoDe(edicionActiva.solicitud)}
+          diasFestivos={datos.diasFestivos}
           actualizando={actualizando}
           onClose={() => setEdicionActiva(null)}
           onConfirm={(propuesta) => onSolicitarEdicion(edicionActiva.solicitud.id, propuesta)}

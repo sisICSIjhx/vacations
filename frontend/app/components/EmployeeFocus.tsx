@@ -4,6 +4,7 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { BriefcaseBusiness, Building2, CalendarCheck2, CalendarClock, MapPin, RotateCcw, UserRound } from "lucide-react";
 import { Select } from "./Select";
+import { aniversarioEnAnio } from "../lib/antiguedad";
 import type { DatosVacaciones, Empleado, FiltrosCalendario, PerfilUsuario } from "../types";
 
 interface EmployeeFocusProps {
@@ -30,6 +31,9 @@ export function EmployeeFocus({ datos, filtros, empleadoSeleccionado, perfil, on
   // herramientas de revisión (admin/RRHH/Mesa Directiva); un "empleado" en
   // autoservicio no tiene nada que filtrar, solo su propio saldo.
   const esAutoservicio = perfil?.rol === "empleado";
+  // Los días por derecho solo se usan desde el aniversario de ingreso (028).
+  const aniversario = empleadoSeleccionado && aniversarioEnAnio(empleadoSeleccionado.fechaIngreso, empleadoSeleccionado.saldo.anio);
+  const derechoDesde = empleadoSeleccionado && empleadoSeleccionado.saldo.diasPorDerecho > 0 && aniversario && aniversario > format(new Date(), "yyyy-MM-dd") ? aniversario : undefined;
 
   return (
     <aside className="focus-panel">
@@ -110,6 +114,7 @@ export function EmployeeFocus({ datos, filtros, empleadoSeleccionado, perfil, on
             <Stat etiqueta="Tomados" valor={empleadoSeleccionado.saldo.diasTomados} />
           </div>
           <div className="insight-row"><CalendarClock size={15} /><span>Solicitados (planeados o pendientes)</span><strong>{empleadoSeleccionado.saldo.diasPlaneados + empleadoSeleccionado.saldo.diasPendientes} días</strong></div>
+          {derechoDesde && <div className="insight-row"><CalendarClock size={15} /><span>{empleadoSeleccionado.saldo.diasPorDerecho} día(s) por derecho, utilizables desde</span><strong>{format(parseISO(derechoDesde), "d MMM yyyy", { locale: es })}</strong></div>}
           <div className="insight-row"><CalendarCheck2 size={15} /><span>Ingreso</span><strong>{empleadoSeleccionado.fechaIngreso ? format(parseISO(empleadoSeleccionado.fechaIngreso), "d MMM yyyy", { locale: es }) : "Sin fecha"}</strong></div>
         </section>
       ) : esAutoservicio ? (
