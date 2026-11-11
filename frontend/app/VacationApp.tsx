@@ -451,7 +451,7 @@ export default function VacationApp() {
             <button className="icon-button" type="button" onClick={cerrarSesion} aria-label="Cerrar sesión" title="Cerrar sesión"><LogOut size={18} /></button>
           </div>
         </header>
-        {(cambiandoContrasena || debeCambiarContrasena) && <ChangePasswordModal obligatorio={debeCambiarContrasena} onActualizada={() => setContrasenaActualizada(true)} onClose={() => setCambiandoContrasena(false)} />}
+        {(cambiandoContrasena || debeCambiarContrasena) && <ChangePasswordModal obligatorio={debeCambiarContrasena} correo={sesion?.user.email} onActualizada={() => setContrasenaActualizada(true)} onClose={() => setCambiandoContrasena(false)} onCerrarSesion={() => { void obtenerSupabase()?.auth.signOut({ scope: "local" }); }} />}
         {sistema.modoDemostracion && <div className="demo-banner"><span><ShieldCheck size={15} /><strong>Demostración</strong> Los cambios son temporales hasta conectar Supabase.</span></div>}
         {sistema.error && <div className="global-error">{sistema.error}</div>}
         <main className="app-main">
@@ -467,6 +467,7 @@ export default function VacationApp() {
               onCreate={perfil?.rol === "administrador" || perfil?.rol === "empleado" ? sistema.guardarSolicitud : undefined}
               onRevisar={sistema.revisarSolicitud}
               onObtenerRevisiones={sistema.obtenerRevisiones}
+              onEditarComentarioRevision={perfil?.rol === "administrador" ? sistema.editarComentarioRevision : undefined}
               consultarHistorial={sistema.consultarHistorial}
               onCancelarDias={perfil?.rol === "administrador" ? sistema.cancelarDiasSolicitud : undefined}
               onDelete={perfil?.rol === "administrador" ? sistema.eliminarSolicitud : undefined}

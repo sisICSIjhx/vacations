@@ -11,6 +11,8 @@ export interface AccesoUsuario {
   activo: boolean;
   correo: string | null;
   puedeCambiarContrasena: boolean;
+  // Ausente si la API publicada es anterior a este campo.
+  debeCambiarContrasena?: boolean;
 }
 
 export interface AccesoCreado {

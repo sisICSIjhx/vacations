@@ -22,16 +22,6 @@ function parseCampos(mensaje: string | null): Record<string, string> {
   return campos
 }
 
-// Dias naturales entre dos fechas DD/MM/YYYY (inclusive); null si no se pueden leer
-function diasNaturales(del?: string, al?: string): number | null {
-  const f = (s?: string) => {
-    const m = s?.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-    return m ? Date.UTC(+m[3], +m[2] - 1, +m[1]) : NaN
-  }
-  const dias = (f(al) - f(del)) / 86_400_000 + 1
-  return Number.isFinite(dias) && dias > 0 ? dias : null
-}
-
 // Plantillas por tipo de evento. Formato WhatsApp: *negrita*, _cursiva_.
 // SALTO separa los datos de la solicitud de la parte del flujo de aprobacion (linea en blanco).
 const SALTO = '\u0000'
@@ -41,10 +31,11 @@ function armarTexto(n: NotificacionPayload, appUrl: string | null): string {
   const tipo = c['Tipo'] ?? 'N/D'
   const del = c['Del'] ?? 'N/D'
   const al = c['Al'] ?? 'N/D'
-  // Desde 016 el SQL manda los dias que descuenta (sin el dia de descanso del
-  // empleado); los avisos anteriores no lo traen y se cuentan dias naturales.
+  // El SQL manda los dias que descuenta, sin el dia de descanso del empleado ni
+  // festivos (016, 017, 029). Sin ese campo no se muestra el conteo: los dias
+  // naturales no coinciden con lo que descuenta la solicitud.
   const diasSql = Number(c['Días'])
-  const dias = c['Días'] && Number.isFinite(diasSql) ? diasSql : diasNaturales(c['Del'], c['Al'])
+  const dias = c['Días'] && Number.isFinite(diasSql) ? diasSql : null
   const periodo = `📅 *Periodo:* ${del} al ${al}${dias ? ` (${dias} ${dias === 1 ? 'día' : 'días'})` : ''}`
   const jefe = c['Jefe inmediato']
   // La app marca las solicitudes extraordinarias con el prefijo [URGENTE] en el comentario

@@ -21,8 +21,9 @@ function CampoContrasena({ etiqueta, value, onChange, autoComplete, minLength }:
 // El administrador decide por usuario si puede cambiar su contraseña; el
 // servidor vuelve a comprobarlo, esto solo es la pantalla.
 // Con `obligatorio` (el administrador restableció la contraseña y pidió
-// cambiarla) no se puede cerrar hasta que el usuario elija una nueva.
-export function ChangePasswordModal({ onClose, onActualizada, obligatorio = false }: { onClose: () => void; onActualizada?: () => void; obligatorio?: boolean }) {
+// cambiarla) no se puede cerrar hasta que el usuario elija una nueva; sí puede
+// cerrar sesión en este navegador para entrar con otra cuenta.
+export function ChangePasswordModal({ onClose, onActualizada, onCerrarSesion, correo, obligatorio = false }: { onClose: () => void; onActualizada?: () => void; onCerrarSesion?: () => void; correo?: string; obligatorio?: boolean }) {
   const [actual, setActual] = useState("");
   const [nueva, setNueva] = useState("");
   const [confirmacion, setConfirmacion] = useState("");
@@ -70,14 +71,14 @@ export function ChangePasswordModal({ onClose, onActualizada, obligatorio = fals
           </>
         ) : (
           <>
-            {obligatorio && <p className="empty-note">La administración restableció tu contraseña. Por seguridad, debes cambiar la contraseña temporal por una propia antes de continuar.</p>}
+            {obligatorio && <p className="empty-note">La administración restableció tu contraseña{correo ? <> de <strong>{correo}</strong></> : null}. Por seguridad, debes cambiar la contraseña temporal por una propia antes de continuar.</p>}
             <div className="form-grid two-columns">
               <CampoContrasena etiqueta="Contraseña actual *" autoComplete="current-password" value={actual} onChange={setActual} />
               <CampoContrasena etiqueta="Nueva contraseña * (mínimo 8 caracteres)" autoComplete="new-password" minLength={8} value={nueva} onChange={setNueva} />
               <CampoContrasena etiqueta="Confirmar nueva contraseña *" autoComplete="new-password" minLength={8} value={confirmacion} onChange={setConfirmacion} />
             </div>
             {error && <div className="inline-alert error">{error}</div>}
-            <footer>{!obligatorio && <button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button>}<button className="primary-button" type="submit" disabled={guardando} title="Guardar">{guardando ? "Guardando…" : "Cambiar contraseña"}</button></footer>
+            <footer>{!obligatorio && <button className="secondary-button" type="button" onClick={onClose} title="Cancelar">Cancelar</button>}{obligatorio && onCerrarSesion && <button className="secondary-button" type="button" onClick={onCerrarSesion} title="Cerrar sesión en este navegador">Cerrar sesión</button>}<button className="primary-button" type="submit" disabled={guardando} title="Guardar">{guardando ? "Guardando…" : "Cambiar contraseña"}</button></footer>
           </>
         )}
       </form>

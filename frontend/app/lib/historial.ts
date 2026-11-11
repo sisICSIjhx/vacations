@@ -25,7 +25,7 @@ export const TAMANO_PAGINA = 30;
 export const MODULOS: Record<string, string> = { solicitudes: "Solicitudes", personal: "Personal", saldos: "Saldos", catalogos: "Catálogos", festivos: "Días festivos", accesos: "Accesos", importaciones: "Importaciones" };
 export const ACCIONES: Record<string, string> = {
   creacion: "Registro creado", actualizacion: "Información actualizada", eliminacion: "Registro eliminado", restauracion: "Registro restaurado",
-  aprobacion: "Solicitud aprobada", rechazo: "Solicitud rechazada", cancelacion: "Solicitud cancelada",
+  aprobacion: "Solicitud aprobada", rechazo: "Solicitud rechazada", cancelacion: "Solicitud cancelada", edicion_comentario: "Comentario de revisión corregido",
   edicion_solicitada: "Edición solicitada", edicion_aplicada: "Edición aplicada", edicion_rechazada: "Edición rechazada",
   acceso_actualizado: "Configuración de acceso actualizada", contrasena_restablecida: "Contraseña restablecida", contrasena_cambiada: "Contraseña cambiada",
 };
@@ -70,7 +70,7 @@ interface CampoDetalleActividad {
 // Una decisión registra un hecho; solo las modificaciones con evidencia de
 // ambos valores se pueden presentar como una comparación.
 export function detalleActividad(evento: EventoActividad): { titulo: string; nota?: string; campos: CampoDetalleActividad[] } {
-  const esModificacion = ["actualizacion", "edicion_aplicada", "restauracion", "cancelacion"].includes(evento.accion);
+  const esModificacion = ["actualizacion", "edicion_aplicada", "restauracion", "cancelacion", "edicion_comentario"].includes(evento.accion);
   const anteriores = { ...evento.anteriores };
   const nuevos = { ...evento.nuevos };
   for (const [origen, destino] of [["valores_anteriores", anteriores], ["anterior", anteriores], ["valores_nuevos", nuevos], ["nuevo", nuevos]] as const) {

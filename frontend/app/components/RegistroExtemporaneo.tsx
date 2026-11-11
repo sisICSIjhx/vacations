@@ -2,8 +2,7 @@
 
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import type { PerfilUsuario, SolicitudFormulario } from "../types";
-
-export const ANTICIPACION_MINIMA_DIAS = 15;
+import { ANTICIPACION_MINIMA_DIAS } from "../lib/anticipacion";
 
 // Reglas de anticipación compartidas por los dos formularios de solicitud
 // (sección Solicitudes y "Crear solicitud" del calendario). El administrador

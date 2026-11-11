@@ -642,7 +642,42 @@ export function useVacationSystem(habilitado: boolean, anio: number, perfil: Per
     }));
   }, [revisionesDemo]);
 
-  const consultarHistorial = useCallback(async (filtros: FiltrosHistorial) => {
+  // Solo administrador (030): cambia o quita el comentario de una revisión ya
+  // registrada, con motivo; la decisión y el estado no cambian.
+  const editarComentarioRevision = useCallback(async (revision: RevisionSolicitud, comentario: string, motivo: string) => {
+    setActualizando(true);
+    setError(null);
+    const texto = comentario.trim();
+    if (!motivo.trim()) {
+      setError("Indica el motivo del cambio.");
+      setActualizando(false);
+      return false;
+    }
+    if (revision.decision === "rechazado" && !texto) {
+      setError("Un rechazo debe conservar su motivo: corrige el texto en lugar de quitarlo.");
+      setActualizando(false);
+      return false;
+    }
+    const supabase = obtenerSupabase();
+    if (!supabase) {
+      setRevisionesDemo((actual) => ({
+        ...actual,
+        [revision.solicitudId]: (actual[revision.solicitudId] ?? []).map((item) => item.id === revision.id ? { ...item, comentario: texto || undefined } : item),
+      }));
+      setActualizando(false);
+      return true;
+    }
+    const { error: rpcError } = await supabase.schema("vacaciones").rpc("editar_comentario_revision", {
+      p_revision_id: revision.id,
+      p_comentario: texto || null,
+      p_motivo: motivo.trim(),
+    });
+    if (rpcError) setError(rpcError.message);
+    setActualizando(false);
+    return !rpcError;
+  }, []);
+
+  const consultarHistorial =useCallback(async (filtros: FiltrosHistorial) => {
     if (supabaseConfigurado) return consultarHistorialRemoto(filtros);
     const decisiones: EventoActividad[] = Object.values(revisionesDemo).flat().map(r => {
       const solicitud = datos.solicitudes.find(s => s.id === r.solicitudId);
@@ -991,6 +1026,7 @@ export function useVacationSystem(habilitado: boolean, anio: number, perfil: Per
     cancelarDiasSolicitud,
     revisarSolicitud,
     obtenerRevisiones,
+    editarComentarioRevision,
     consultarHistorial,
     solicitarEdicion,
     aplicarEdicion,
@@ -999,5 +1035,5 @@ export function useVacationSystem(habilitado: boolean, anio: number, perfil: Per
     eliminarCatalogo,
     guardarFestivo,
     eliminarFestivo,
-  }), [consultarHistorial, actualizando, cambiarEstadoEmpleado, cambiarEstadoSolicitud, cancelarDiasSolicitud, cargando, cargarDesdeSupabase, datos, eliminarCatalogo, eliminarEmpleado, eliminarFestivo, eliminarSolicitud, error, guardarCatalogo, guardarEmpleado, guardarFestivo, guardarSolicitud, obtenerRevisiones, rechazarEdicion, revisarSolicitud, solicitarEdicion, aplicarEdicion]);
+  }), [consultarHistorial, actualizando, cambiarEstadoEmpleado, cambiarEstadoSolicitud, cancelarDiasSolicitud, cargando, cargarDesdeSupabase, datos, editarComentarioRevision, eliminarCatalogo, eliminarEmpleado, eliminarFestivo, eliminarSolicitud, error, guardarCatalogo, guardarEmpleado, guardarFestivo, guardarSolicitud, obtenerRevisiones, rechazarEdicion, revisarSolicitud, solicitarEdicion, aplicarEdicion]);
 }

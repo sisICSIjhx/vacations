@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { BadgeCheck, Check, Copy, Eye, KeyRound, Pencil, Plus, Search, ShieldCheck, Trash2, UserCheck, UserX, X } from "lucide-react";
+import { BadgeCheck, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, FileSpreadsheet, FileText, Funnel, KeyRound, Pencil, Plus, Search, ShieldCheck, Trash2, UserCheck, UserX, X } from "lucide-react";
 import { accesosDisponibles, actualizarAcceso, crearAcceso, listarAccesos, restablecerContrasena, verContrasena, type AccesoCreado, type AccesoUsuario } from "../lib/api";
 import { obtenerSupabase, supabaseConfigurado } from "../lib/supabase";
 import { Select } from "./Select";
+import { MenuTabla } from "./MenuTabla";
+import { descargarExcel, descargarPdf } from "../lib/exportarTabla";
 import { DIAS_SEMANA } from "../lib/diaHabil";
 import { aniversarioEnAnio, antiguedadEnAnio, diasOtorgadosAl, diasPorDerechoEnAnio } from "../lib/antiguedad";
 import { cambioSaldo, valoresSaldo } from "../lib/ajusteSaldo";
@@ -32,6 +34,10 @@ interface EmployeesViewProps {
   soloSaldo?: boolean;
   error?: string | null;
 }
+
+type FiltroEstado = "todos" | "activo" | "inactivo";
+const FILAS_POR_PAGINA = 10;
+const ETIQUETA_FILTRO: Record<FiltroEstado, string> = { todos: "Todos", activo: "Activos", inactivo: "Inactivos" };
 
 const formularioVacio: EmpleadoFormulario = {
   numeroEmpleado: "",
@@ -106,7 +112,10 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
   const [resultado, setResultado] = useState<AccesoCreado | null>(null);
   const [copiado, setCopiado] = useState<"correo" | "contrasena" | null>(null);
   const [permitirCambio, setPermitirCambio] = useState(accesoActual?.puedeCambiarContrasena ?? false);
-  const [forzarCambio, setForzarCambio] = useState(false);
+  // En un acceso existente el interruptor refleja la marca actual del servidor
+  // (si la API la informa) para poder activarla o quitarla.
+  const marcaCambioActual = accesoActual?.debeCambiarContrasena;
+  const [forzarCambio, setForzarCambio] = useState(marcaCambioActual ?? false);
   const [mfa, setMfa] = useState<{ factorId: string; qr?: string; secreto?: string } | null>(null);
   const [codigoMfa, setCodigoMfa] = useState("");
 
@@ -147,7 +156,9 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
       const correoNuevo = correoAcceso.trim();
       const cambiaCorreo = Boolean(correoNuevo) && correoNuevo.toLowerCase() !== (accesoActual.correo ?? "").toLowerCase();
       if (cambiaCorreo && !window.confirm(`¿Cambiar el correo de acceso de ${empleado.nombre} a ${correoNuevo}? A partir de ahora deberá iniciar sesión con ese correo; su contraseña no cambia.`)) return;
-      await actualizarAcceso(accesoActual.usuarioId, { rol, activo, permitirCambioContrasena: permitirCambio, ...(forzarCambio ? { forzarCambioContrasena: true } : {}), ...(cambiaCorreo ? { correo: correoNuevo } : {}) });
+      // Con una API que no informa la marca solo se puede activar, como antes.
+      const cambiaMarca = marcaCambioActual === undefined ? forzarCambio : forzarCambio !== marcaCambioActual;
+      await actualizarAcceso(accesoActual.usuarioId, { rol, activo, permitirCambioContrasena: permitirCambio, ...(cambiaMarca ? { forzarCambioContrasena: forzarCambio } : {}), ...(cambiaCorreo ? { correo: correoNuevo } : {}) });
       onRefrescar();
       onClose();
     } catch (err) {
@@ -305,8 +316,14 @@ function AccessModal({ empleado, accesos, onClose, onRefrescar }: {
             </label>
             <label className="option-card">
               <div className="option-text">
-                <strong>Al restablecer, pedir al usuario que cambie la contraseña al iniciar sesión</strong>
-                <small>Al entrar con la contraseña temporal, el sistema le exigirá elegir una nueva antes de continuar. Tú podrás seguir consultándola con tu código del autenticador.</small>
+                <strong>Pedir al usuario que cambie la contraseña al iniciar sesión</strong>
+                <small>{marcaCambioActual === undefined
+                  ? "Al entrar, el sistema le exigirá elegir una nueva contraseña antes de continuar. También se aplica al restablecerla."
+                  : marcaCambioActual
+                    ? forzarCambio
+                      ? "Activo: al entrar se le pide elegir una nueva contraseña. Desactívalo y guarda para quitar el aviso sin cambiar su contraseña."
+                      : "Al guardar se quitará el aviso: podrá seguir entrando con su contraseña actual."
+                    : "Al entrar (o tras restablecerla), el sistema le exigirá elegir una nueva contraseña antes de continuar."}</small>
               </div>
               <input type="checkbox" role="switch" className="switch" checked={forzarCambio} onChange={(e) => setForzarCambio(e.target.checked)} />
             </label>
@@ -359,7 +376,26 @@ export function EmployeesView({ datos, anio, actualizando, onSave, onToggleEstad
   const [formulario, setFormulario] = useState<EmpleadoFormulario | null>(null);
   const [accesos, setAccesos] = useState<AccesoUsuario[]>([]);
   const [gestionAcceso, setGestionAcceso] = useState<Empleado | null>(null);
-  const empleados = useMemo(() => datos.empleados.filter((empleado) => `${empleado.nombre} ${empleado.numeroEmpleado} ${empleado.sede} ${empleado.proyecto}`.toLowerCase().includes(busqueda.toLowerCase())), [busqueda, datos.empleados]);
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
+  const [pagina, setPagina] = useState(0);
+  const [seleccion, setSeleccion] = useState<Set<string>>(() => new Set());
+  const [exportando, setExportando] = useState<"excel" | "pdf" | null>(null);
+  const [errorExportacion, setErrorExportacion] = useState<string | null>(null);
+  const empleados = useMemo(() => datos.empleados.filter((empleado) => (filtroEstado === "todos" || empleado.estado === filtroEstado)
+    && `${empleado.nombre} ${empleado.numeroEmpleado} ${empleado.sede} ${empleado.proyecto}`.toLowerCase().includes(busqueda.toLowerCase())), [busqueda, datos.empleados, filtroEstado]);
+  const totalPaginas = Math.max(1, Math.ceil(empleados.length / FILAS_POR_PAGINA));
+  const paginaActual = Math.min(pagina, totalPaginas - 1);
+  const inicioPagina = paginaActual * FILAS_POR_PAGINA;
+  const empleadosPagina = empleados.slice(inicioPagina, inicioPagina + FILAS_POR_PAGINA);
+  // La selección sobrevive a la búsqueda, pero solo cuenta (y se exporta) lo que sigue visible con los filtros.
+  const seleccionados = empleados.filter((empleado) => seleccion.has(empleado.id));
+  const todosSeleccionados = empleados.length > 0 && seleccionados.length === empleados.length;
+  const alternarSeleccion = (id: string) => setSeleccion((actual) => {
+    const siguiente = new Set(actual);
+    if (siguiente.has(id)) siguiente.delete(id); else siguiente.add(id);
+    return siguiente;
+  });
+  const alternarTodos = () => setSeleccion(todosSeleccionados ? new Set() : new Set(empleados.map((empleado) => empleado.id)));
   // Los días por derecho se otorgan en el aniversario de ingreso (LFT; el
   // sistema los suma solo ese día). En un saldo nuevo, la fecha de ingreso
   // aplica los días ya otorgados y disponibles = derecho + acumulados; uno
@@ -393,6 +429,54 @@ export function EmployeesView({ datos, anio, actualizando, onSave, onToggleEstad
           : `El ${format(parseISO(aniversario), "d 'de' MMMM yyyy", { locale: es })} cumple ${antiguedadFormulario} año(s) y se le sumarán ${derechoLft} día(s) por derecho automáticamente; podrá usarlos desde esa fecha.`
         : `${derechoLft} día(s) por derecho otorgados el ${format(parseISO(aniversario), "d 'de' MMMM yyyy", { locale: es })} por ${antiguedadFormulario} año(s) de antigüedad.`;
   const accesoDe = (empleado: Empleado) => accesos.find((item) => item.empleadoId === empleado.id);
+  const etiquetaAcceso = (empleado: Empleado) => {
+    const acceso = accesoDe(empleado);
+    return acceso ? `${ETIQUETA_ROL[acceso.rol]}${acceso.activo ? "" : " · inactivo"}${acceso.debeCambiarContrasena ? " · cambio de contraseña pendiente" : ""}` : "Sin acceso";
+  };
+
+  // Exporta lo mismo que muestra la tabla (sin CURP ni NSS, solo si están capturados):
+  // los seleccionados si hay selección; si no, todos los registros filtrados.
+  const exportar = async (formato: "excel" | "pdf") => {
+    const filas = seleccionados.length ? seleccionados : empleados;
+    const encabezados = ["Número", "Nombre", "Categoría", "Proyecto", "Sede", "Fecha de ingreso", "Días por derecho", "Acumulados", "Disponibles", "Tomados", "Identificación", "Estado", ...(mostrarAccesos ? ["Acceso"] : [])];
+    const tabla = {
+      titulo: `Personal ${anio}`,
+      subtitulo: [
+        `${filas.length} ${filas.length === 1 ? "registro" : "registros"}${seleccionados.length ? " seleccionados" : ""}`,
+        filtroEstado !== "todos" ? `Estado: ${ETIQUETA_FILTRO[filtroEstado].toLowerCase()}` : "",
+        busqueda.trim() ? `Búsqueda: «${busqueda.trim()}»` : "",
+        `Generado el ${format(new Date(), "d 'de' MMMM yyyy, HH:mm", { locale: es })}`,
+      ].filter(Boolean).join(" · "),
+      encabezados,
+      filas: filas.map((empleado) => [
+        empleado.numeroEmpleado,
+        empleado.nombre,
+        empleado.categoria,
+        empleado.proyecto,
+        empleado.sede,
+        empleado.fechaIngreso ? format(parseISO(empleado.fechaIngreso), "dd/MM/yyyy") : "",
+        empleado.saldo.diasPorDerecho,
+        empleado.saldo.diasAcumulados,
+        empleado.saldo.diasDisponibles,
+        empleado.saldo.diasTomados,
+        empleado.curp || empleado.nss ? "Capturada" : "Pendiente",
+        empleado.estado === "activo" ? "Activo" : "Inactivo",
+        ...(mostrarAccesos ? [etiquetaAcceso(empleado)] : []),
+      ]),
+    };
+    const nombreArchivo = `personal-saldo-${anio}_${format(new Date(), "yyyy-MM-dd")}`;
+    setExportando(formato);
+    setErrorExportacion(null);
+    try {
+      if (formato === "excel") descargarExcel(tabla, nombreArchivo);
+      else await descargarPdf(tabla, nombreArchivo);
+    } catch {
+      setErrorExportacion(`No fue posible generar el ${formato === "excel" ? "archivo de Excel" : "PDF"}. Inténtalo de nuevo.`);
+    } finally {
+      setExportando(null);
+    }
+  };
+  const registrosAExportar = seleccionados.length || empleados.length;
 
   const cargarAccesos = useCallback(() => {
     if (!mostrarAccesos) return;
@@ -429,17 +513,63 @@ export function EmployeesView({ datos, anio, actualizando, onSave, onToggleEstad
         {!soloSaldo && <button className="primary-button" type="button" onClick={() => setFormulario({ ...formularioVacio })} title="Alta de empleado"><Plus size={17} />Alta de empleado</button>}
       </section>
 
-      <section className="content-card table-card">
-        <header className="table-toolbar">
-          <div className="search-field"><Search size={17} /><input value={busqueda} onChange={(evento) => setBusqueda(evento.target.value)} placeholder="Buscar por nombre, número, sede o proyecto" /></div>
-          <span>{empleados.length} registros</span>
+      <section className="content-card table-card people-card">
+        <header className="table-toolbar people-toolbar">
+          <div className="people-toolbar-left">
+            <div className="search-field"><Search size={17} /><input value={busqueda} onChange={(evento) => { setBusqueda(evento.target.value); setPagina(0); }} placeholder="Buscar por nombre, número, sede o proyecto" aria-label="Buscar personal" /></div>
+            {seleccionados.length > 0 && (
+              <span className="people-selection" role="status">
+                {seleccionados.length} {seleccionados.length === 1 ? "seleccionado" : "seleccionados"}
+                <button type="button" className="text-button" onClick={() => setSeleccion(new Set())}>Quitar selección</button>
+              </span>
+            )}
+          </div>
+          <div className="people-toolbar-right">
+            <div className="table-pagination" aria-label="Paginación">
+              <span>{empleados.length ? `${inicioPagina + 1} – ${inicioPagina + empleadosPagina.length}` : "0"} <span className="table-pagination-total">de {empleados.length}</span></span>
+              <button type="button" className="table-tool" onClick={() => setPagina(paginaActual - 1)} disabled={paginaActual === 0} aria-label="Página anterior" title="Página anterior"><ChevronLeft size={20} /></button>
+              <button type="button" className="table-tool" onClick={() => setPagina(paginaActual + 1)} disabled={paginaActual >= totalPaginas - 1} aria-label="Página siguiente" title="Página siguiente"><ChevronRight size={20} /></button>
+            </div>
+            <div className="table-tools">
+              <MenuTabla
+                icono={<Funnel size={19} />}
+                etiqueta={filtroEstado === "todos" ? "Filtrar por estado" : `Filtrar por estado (${ETIQUETA_FILTRO[filtroEstado].toLowerCase()})`}
+                titulo="Filtrar por estado"
+                activo={filtroEstado !== "todos"}
+                opciones={(Object.keys(ETIQUETA_FILTRO) as FiltroEstado[]).map((estado) => ({
+                  id: estado,
+                  etiqueta: ETIQUETA_FILTRO[estado],
+                  seleccionada: filtroEstado === estado,
+                  onSelect: () => { setFiltroEstado(estado); setPagina(0); },
+                }))}
+              />
+              <MenuTabla
+                icono={exportando ? <span className="table-tool-spinner" aria-hidden="true" /> : <Download size={19} />}
+                etiqueta={exportando ? "Generando archivo…" : "Descargar"}
+                titulo={`Descargar ${registrosAExportar} ${registrosAExportar === 1 ? "registro" : "registros"}${seleccionados.length ? " seleccionados" : ""}`}
+                deshabilitado={Boolean(exportando) || empleados.length === 0}
+                opciones={[
+                  { id: "excel", etiqueta: "Excel (.xlsx)", descripcion: "Hoja de cálculo con filtros", icono: <FileSpreadsheet size={18} />, onSelect: () => void exportar("excel") },
+                  { id: "pdf", etiqueta: "PDF (.pdf)", descripcion: "Documento listo para imprimir", icono: <FileText size={18} />, onSelect: () => void exportar("pdf") },
+                ]}
+              />
+            </div>
+          </div>
         </header>
+        {errorExportacion && <p className="inline-alert error people-export-error" role="alert">{errorExportacion}</p>}
         <div className="responsive-table-wrap">
-          <table className="data-table employee-table">
-            <thead><tr><th className="th-flex">Empleado</th><th>Proyecto</th><th>Sede</th><th>Ingreso</th><th>Disponibles</th><th>Tomados</th><th>Identificación</th><th>Estado</th>{mostrarAccesos && <th>Acceso</th>}<th>Acciones</th></tr></thead>
+          <table className="data-table employee-table people-table">
+            <thead><tr>
+              <th className="th-check"><input type="checkbox" className="table-check" checked={todosSeleccionados} ref={(casilla) => { if (casilla) casilla.indeterminate = seleccionados.length > 0 && !todosSeleccionados; }} onChange={alternarTodos} disabled={empleados.length === 0} aria-label="Seleccionar todos los registros filtrados" title="Seleccionar todos los registros filtrados" /></th>
+              <th className="th-flex">Empleado</th><th>Proyecto</th><th>Sede</th><th>Ingreso</th><th>Disponibles</th><th>Tomados</th><th>Identificación</th><th>Estado</th>{mostrarAccesos && <th>Acceso</th>}<th className="th-actions">Acciones</th>
+            </tr></thead>
             <tbody>
-              {empleados.map((empleado) => (
-                <tr key={empleado.id}>
+              {empleadosPagina.length === 0 && (
+                <tr><td className="people-empty" colSpan={mostrarAccesos ? 11 : 10}>No hay registros que coincidan con la búsqueda o el filtro.</td></tr>
+              )}
+              {empleadosPagina.map((empleado) => (
+                <tr key={empleado.id} className={seleccion.has(empleado.id) ? "selected" : undefined}>
+                  <td className="td-check"><input type="checkbox" className="table-check" checked={seleccion.has(empleado.id)} onChange={() => alternarSeleccion(empleado.id)} aria-label={`Seleccionar a ${empleado.nombre}`} /></td>
                   <td><div className="person-cell"><span className="avatar small" style={{ background: empleado.color }}>{empleado.nombre.split(" ").slice(0, 2).map((parte) => parte[0]).join("")}</span><div><strong>{empleado.nombre}</strong><span>{empleado.numeroEmpleado} · {empleado.categoria}</span></div></div></td>
                   <td>{empleado.proyecto}</td>
                   <td>{empleado.sede}</td>
@@ -448,7 +578,7 @@ export function EmployeesView({ datos, anio, actualizando, onSave, onToggleEstad
                   <td><span className="count-chip">{empleado.saldo.diasTomados} días</span></td>
                   <td>{empleado.curp || empleado.nss ? <span className="secure-label"><ShieldCheck size={14} />Capturada</span> : <span className="muted-label">Pendiente</span>}</td>
                   <td><span className={`status-pill ${empleado.estado}`}>{empleado.estado}</span></td>
-                  {mostrarAccesos && <td>{accesoDe(empleado) ? <span className={`status-pill ${accesoDe(empleado)!.activo ? "aprobada" : "rechazada"}`}>{ETIQUETA_ROL[accesoDe(empleado)!.rol]}{accesoDe(empleado)!.activo ? "" : " · inactivo"}</span> : <span className="muted-label">Sin acceso</span>}</td>}
+                  {mostrarAccesos && <td>{accesoDe(empleado) ? <span className={`status-pill ${accesoDe(empleado)!.activo ? "aprobada" : "rechazada"}`}>{etiquetaAcceso(empleado)}</span> : <span className="muted-label">Sin acceso</span>}</td>}
                   <td>
                     <div className="row-actions">
                       {mostrarAccesos && <button className="icon-button subtle" type="button" onClick={() => setGestionAcceso(empleado)} aria-label={`Gestionar acceso de ${empleado.nombre}`} title="Gestionar acceso"><KeyRound size={16} /></button>}

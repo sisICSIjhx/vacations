@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { differenceInCalendarDays, format, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarPlus, Check, CircleX, Clock, Eye, Pencil, Plus, Search, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
+import { CalendarPlus, Check, CircleX, Clock, Eye, MessageSquare, Pencil, Plus, Search, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
 import { PanelHistorial } from "./HistoryView";
 import { historialSolicitudExistente, type ConsultarHistorial } from "../lib/historial";
 import { Select } from "./Select";
 import { separarUrgencia } from "../lib/urgente";
 import { siguienteDiaHabil } from "../lib/diaHabil";
-import { ANTICIPACION_MINIMA_DIAS, AvisoSinAnticipacion, PanelExtemporaneo, reglasAnticipacion } from "./RegistroExtemporaneo";
+import { AvisoSinAnticipacion, PanelExtemporaneo, reglasAnticipacion } from "./RegistroExtemporaneo";
+import { ANTICIPACION_MINIMA_DIAS, diasDeAnticipacion } from "../lib/anticipacion";
 import { ResumenSolicitud } from "./ResumenSolicitud";
 import { AtenderEdicionModal, SolicitarEdicionModal } from "./EdicionSolicitud";
 import type {
@@ -34,6 +35,8 @@ interface RequestsViewProps {
   onCreate?: (formulario: SolicitudFormulario) => Promise<boolean>;
   onRevisar: (id: string, etapa: EtapaAccionable, decision: DecisionRevision, comentario?: string) => Promise<boolean>;
   onObtenerRevisiones: (id: string) => Promise<RevisionSolicitud[]>;
+  // Solo administrador (030): corrige o quita el comentario de una revisión, con motivo.
+  onEditarComentarioRevision?: (revision: RevisionSolicitud, comentario: string, motivo: string) => Promise<boolean>;
   // Cancela los días de una aprobada (022): los reintegra y avisa al empleado con el motivo.
   onCancelarDias?: (id: string, motivo: string) => Promise<boolean>;
   onDelete?: (id: string) => Promise<boolean>;
@@ -120,18 +123,17 @@ function DecisionModal({ solicitud, etapa, decision, onClose, onConfirm, actuali
   actualizando: boolean;
 }) {
   const [comentario, setComentario] = useState("");
-  const diasAnticipacion = differenceInCalendarDays(parseISO(solicitud.fechaInicio), new Date());
+  const diasAnticipacion = diasDeAnticipacion(solicitud.fechaInicio, solicitud.fechaSolicitud);
   const { urgente, texto: motivoEmpleado } = separarUrgencia(solicitud.comentarios);
-  const anticipacionInsuficiente = etapa === "rrhh" && decision === "aprobado" && diasAnticipacion < ANTICIPACION_MINIMA_DIAS;
+  const revisarAnticipacion = etapa === "rrhh" && decision === "aprobado";
+  const anticipacionInsuficiente = diasAnticipacion !== null && diasAnticipacion < ANTICIPACION_MINIMA_DIAS;
   const extemporanea = !!solicitud.registroExtemporaneo;
-  // Sin la marca de urgente ni de registro extemporáneo, la base de datos
-  // rechaza la aprobación: se bloquea el botón.
-  const bloqueadaPorAnticipacion = anticipacionInsuficiente && !urgente && !extemporanea;
+  const bloqueadaPorAnticipacion = revisarAnticipacion && (diasAnticipacion === null || anticipacionInsuficiente) && !urgente && !extemporanea;
   // El motivo del rechazo se envía al empleado por correo; la base de datos también lo exige.
   const faltaMotivo = decision === "rechazado" && comentario.trim() === "";
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) onClose(); }}>
-      <form className="form-modal" onSubmit={(evento) => { evento.preventDefault(); void onConfirm(comentario); }}>
+      <form className="form-modal" onSubmit={(evento) => { evento.preventDefault(); if (!actualizando && !faltaMotivo && !bloqueadaPorAnticipacion) void onConfirm(comentario); }}>
         <header>
           <div className="form-title-with-icon">
             <span className={`icon-tile ${decision === "aprobado" ? "green" : "red"}`}>{decision === "aprobado" ? <Check size={18} /> : <CircleX size={18} />}</span>
@@ -144,18 +146,21 @@ function DecisionModal({ solicitud, etapa, decision, onClose, onConfirm, actuali
         </p>
         {urgente && (
           <div className="inline-alert" style={{ ...estiloUrgente, fontWeight: 400 }}>
-            <strong>🚨 Solicitud urgente.</strong>{anticipacionInsuficiente && <> Se pidió con {Math.max(diasAnticipacion, 0)} día(s) de anticipación (menos de los {ANTICIPACION_MINIMA_DIAS} requeridos), pero por estar marcada como urgente sí puede aprobarse.</>}
+            <strong>🚨 Solicitud urgente.</strong>{revisarAnticipacion && anticipacionInsuficiente && <> Se pidió con {Math.max(diasAnticipacion, 0)} día(s) de anticipación (menos de los {ANTICIPACION_MINIMA_DIAS} requeridos), pero por estar marcada como urgente sí puede aprobarse.</>}
             {motivoEmpleado && <><br /><strong>Motivo del empleado:</strong> {motivoEmpleado}</>}
           </div>
         )}
-        {extemporanea && anticipacionInsuficiente && (
+        {extemporanea && revisarAnticipacion && (diasAnticipacion === null || anticipacionInsuficiente) && (
           <div className="inline-alert" style={{ background: "color-mix(in srgb, #f59e0b 12%, transparent)", borderColor: "color-mix(in srgb, #f59e0b 45%, transparent)", color: "inherit" }}>
             <strong>Registro extemporáneo.</strong> La capturó un administrador fuera de plazo{solicitud.fechaSolicitud ? ` (solicitada el ${format(parseISO(solicitud.fechaSolicitud), "d MMM yyyy", { locale: es })})` : ""}, por lo que puede aprobarse aunque no cumpla los {ANTICIPACION_MINIMA_DIAS} días de anticipación.
           </div>
         )}
         {bloqueadaPorAnticipacion && (
           <div className="inline-alert error">
-            <TriangleAlert size={15} /> <strong>No se puede aprobar:</strong> las vacaciones deben pedirse con al menos {ANTICIPACION_MINIMA_DIAS} días de anticipación y esta solicitud se hizo con {Math.max(diasAnticipacion, 0)} día(s). Recházala indicando que la reprograme, o pide al empleado que la marque como urgente y explique el motivo.
+            <TriangleAlert size={15} /> <strong>No se puede aprobar:</strong>{" "}
+            {diasAnticipacion === null
+              ? "La solicitud no tiene una fecha de solicitud válida para verificar la anticipación."
+              : <>las vacaciones deben pedirse con al menos {ANTICIPACION_MINIMA_DIAS} días de anticipación y esta solicitud se hizo con {Math.max(diasAnticipacion, 0)} día(s). Recházala indicando que la reprograme, o pide al empleado que la marque como urgente y explique el motivo.</>}
           </div>
         )}
         <div className="form-grid">
@@ -208,20 +213,60 @@ function CancelarDiasModal({ solicitud, onClose, onConfirm, actualizando }: {
   );
 }
 
-function DetailDrawer({ solicitud, empleado, ediciones, onClose, onObtenerRevisiones, consultarHistorial }: {
+// Corrección de un comentario de revisión ya registrado (solo administrador).
+// Un rechazo no puede quedarse sin motivo: solo se corrige.
+function EditorComentarioRevision({ revision, actualizando, onCancel, onSave }: {
+  revision: RevisionSolicitud;
+  actualizando: boolean;
+  onCancel: () => void;
+  onSave: (comentario: string, motivo: string) => Promise<boolean>;
+}) {
+  const [comentario, setComentario] = useState(revision.comentario ?? "");
+  const [motivo, setMotivo] = useState("");
+  const esRechazo = revision.decision === "rechazado";
+  const sinMotivo = motivo.trim() === "";
+  const sinCambios = comentario.trim() === (revision.comentario ?? "").trim();
+  return (
+    <div className="form-grid" style={{ marginTop: 8 }}>
+      <label><span>{esRechazo ? "Motivo del rechazo (obligatorio)" : "Comentario (déjalo vacío para quitarlo)"}</span><textarea rows={3} value={comentario} onChange={(e) => setComentario(e.target.value)} /></label>
+      <label><span>Motivo del cambio (obligatorio, queda en el historial)</span><input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Por qué se corrige o quita el comentario" /></label>
+      <div className="row-actions" style={{ justifyContent: "flex-end" }}>
+        <button className="secondary-button" type="button" onClick={onCancel} title="Cancelar">Cancelar</button>
+        {!esRechazo && revision.comentario && <button className="secondary-button danger-text" type="button" disabled={actualizando || sinMotivo} onClick={() => void onSave("", motivo)} title={sinMotivo ? "Indica el motivo del cambio" : "Quitar el comentario"}><Trash2 size={15} />Quitar comentario</button>}
+        <button className="primary-button" type="button" disabled={actualizando || sinMotivo || sinCambios || (esRechazo && comentario.trim() === "")} onClick={() => void onSave(comentario, motivo)} title={actualizando ? "Guardando…" : "Guardar comentario"}>{actualizando ? "Guardando…" : "Guardar"}</button>
+      </div>
+    </div>
+  );
+}
+
+function DetailDrawer({ solicitud, empleado, ediciones, onClose, onObtenerRevisiones, onEditarComentarioRevision, actualizando, consultarHistorial }: {
   consultarHistorial: ConsultarHistorial;
   solicitud: SolicitudAusencia;
   empleado: Empleado | undefined;
   ediciones: EdicionSolicitud[];
   onClose: () => void;
   onObtenerRevisiones: (id: string) => Promise<RevisionSolicitud[]>;
+  onEditarComentarioRevision?: (revision: RevisionSolicitud, comentario: string, motivo: string) => Promise<boolean>;
+  actualizando: boolean;
 }) {
   const [revisiones, setRevisiones] = useState<RevisionSolicitud[] | null>(null);
+  const [revisionEditada, setRevisionEditada] = useState<string | null>(null);
+  // Cambia tras cada corrección para recargar revisiones e historial.
+  const [version, setVersion] = useState(0);
   useEffect(() => {
     let cancelado = false;
     void onObtenerRevisiones(solicitud.id).then((datos) => { if (!cancelado) setRevisiones(datos); });
     return () => { cancelado = true; };
-  }, [onObtenerRevisiones, solicitud.id]);
+  }, [onObtenerRevisiones, solicitud.id, version]);
+  const guardarComentario = async (revision: RevisionSolicitud, comentario: string, motivo: string) => {
+    if (!onEditarComentarioRevision) return false;
+    const correcto = await onEditarComentarioRevision(revision, comentario, motivo);
+    if (correcto) {
+      setRevisionEditada(null);
+      setVersion((actual) => actual + 1);
+    }
+    return correcto;
+  };
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) onClose(); }}>
@@ -245,15 +290,31 @@ function DetailDrawer({ solicitud, empleado, ediciones, onClose, onObtenerRevisi
         {solicitud.comentarios && <div className="form-grid"><label><span>{separarUrgencia(solicitud.comentarios).urgente ? <>Motivo de la urgencia <EtiquetaUrgente /></> : "Comentario del empleado"}</span><p className="empty-note" style={{ textAlign: "left" }}>{separarUrgencia(solicitud.comentarios).texto || "—"}</p></label></div>}
         {solicitud.cancelacion && <div className="form-grid"><label><span>Días cancelados y reintegrados{solicitud.cancelacion.canceladoEn ? ` el ${format(parseISO(solicitud.cancelacion.canceladoEn), "d MMM yyyy", { locale: es })}` : ""}{solicitud.cancelacion.canceladoPor ? ` · ${solicitud.cancelacion.canceladoPor}` : ""}</span><p className="empty-note" style={{ textAlign: "left" }}>{solicitud.cancelacion.motivo}</p></label></div>}
 
+        {onEditarComentarioRevision && revisiones && revisiones.length > 0 && <>
+          <div className="form-section-title"><MessageSquare size={16} /><span>Comentarios de revisión</span></div>
+          {revisiones.map((revision) => (
+            <div className="form-grid" key={revision.id}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <label style={{ flex: 1 }}>
+                  <span>{NOMBRE_ETAPA[revision.etapa]} · {revision.decision === "aprobado" ? "Aprobó" : "Rechazó"}{revision.nombreRevisor ? ` · ${revision.nombreRevisor}` : ""} · {format(parseISO(revision.creadoEn), "d MMM yyyy", { locale: es })}</span>
+                  <p className="empty-note" style={{ textAlign: "left" }}>{revision.comentario || "Sin comentario"}</p>
+                </label>
+                {revisionEditada !== revision.id && <button className="icon-button subtle" type="button" disabled={actualizando} onClick={() => setRevisionEditada(revision.id)} aria-label={`Editar comentario de ${NOMBRE_ETAPA[revision.etapa]}`} title="Editar o quitar el comentario"><Pencil size={15} /></button>}
+              </div>
+              {revisionEditada === revision.id && <EditorComentarioRevision revision={revision} actualizando={actualizando} onCancel={() => setRevisionEditada(null)} onSave={(comentario, motivo) => guardarComentario(revision, comentario, motivo)} />}
+            </div>
+          ))}
+        </>}
+
         <div className="form-section-title"><Clock size={16} /><span>Historial de la solicitud</span></div>
-        <PanelHistorial key={solicitud.id} consultar={consultarHistorial} filtros={{ solicitudId: solicitud.id }} respaldo={historialSolicitudExistente(solicitud, revisiones ?? [], ediciones)} />
+        <PanelHistorial key={`${solicitud.id}:${version}`}consultar={consultarHistorial} filtros={{ solicitudId: solicitud.id }} respaldo={historialSolicitudExistente(solicitud, revisiones ?? [], ediciones)} />
         <footer><button className="secondary-button" type="button" onClick={onClose} title="Cerrar">Cerrar</button></footer>
       </div>
     </div>
   );
 }
 
-export function RequestsView({ consultarHistorial, datos, perfil, actualizando, onCreate, onRevisar, onObtenerRevisiones, onCancelarDias, onDelete, onSolicitarEdicion, onAplicarEdicion, onRechazarEdicion }: RequestsViewProps) {
+export function RequestsView({ consultarHistorial, datos, perfil, actualizando, onCreate, onRevisar, onObtenerRevisiones, onEditarComentarioRevision, onCancelarDias, onDelete, onSolicitarEdicion, onAplicarEdicion, onRechazarEdicion }: RequestsViewProps) {
   const [busqueda, setBusqueda] = useState("");
   const [estado, setEstado] = useState("");
   const [formulario, setFormulario] = useState<SolicitudFormulario | null>(null);
@@ -450,6 +511,8 @@ export function RequestsView({ consultarHistorial, datos, perfil, actualizando, 
           ediciones={datos.ediciones.filter((item) => item.solicitudId === detalleActivo.id)}
           onClose={() => setDetalleActivo(null)}
           onObtenerRevisiones={onObtenerRevisiones}
+          onEditarComentarioRevision={onEditarComentarioRevision}
+          actualizando={actualizando}
         />
       )}
 

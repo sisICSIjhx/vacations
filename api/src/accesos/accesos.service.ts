@@ -47,6 +47,9 @@ export class AccesosService {
     // y ofrecer vincularlas en vez de invitar un correo duplicado.
     const correoPorUsuario = new Map<string, string>();
     const puedeCambiar = new Set<string>();
+    // Cuentas a las que se les pide cambiar la contraseña al iniciar sesión,
+    // para que el administrador vea la marca y pueda quitarla.
+    const debeCambiar = new Set<string>();
     let pagina = 1;
     for (;;) {
       const { data: listado, error: errorListado } =
@@ -56,6 +59,9 @@ export class AccesosService {
         if (usuario.email) correoPorUsuario.set(usuario.id, usuario.email);
         if (usuario.app_metadata?.puede_cambiar_contrasena === true) {
           puedeCambiar.add(usuario.id);
+        }
+        if (usuario.app_metadata?.debe_cambiar_contrasena === true) {
+          debeCambiar.add(usuario.id);
         }
       }
       if (listado.users.length < 200) break;
@@ -70,6 +76,7 @@ export class AccesosService {
       activo: perfil.activo,
       correo: correoPorUsuario.get(perfil.usuario_id) ?? null,
       puedeCambiarContrasena: puedeCambiar.has(perfil.usuario_id),
+      debeCambiarContrasena: debeCambiar.has(perfil.usuario_id),
     }));
   }
 
