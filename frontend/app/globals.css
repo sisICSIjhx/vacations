@@ -795,6 +795,18 @@ p { color: var(--muted); line-height: 1.55; }
 .field-slot { display: grid; gap: 7px; align-content: start; }
 .field-slot > span { color: var(--muted, #667085); font-size: 13px; font-weight: 600; }
 .field-slot > button { width: 100%; min-height: 48px; }
+/* Edición de solicitudes: lo obligatorio se ve antes de pulsar enviar. */
+.campo-obligatorio { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--amber-soft); color: #a4680b; font-size: 10px; font-weight: 750; letter-spacing: .02em; }
+.campo-ayuda { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
+.campo-ayuda.error { color: var(--red); font-weight: 650; }
+.form-modal textarea[aria-invalid="true"] { border-color: var(--red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 14%, transparent); }
+.requisitos-envio { display: grid; gap: 7px; margin: 14px 0 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-soft); list-style: none; font-size: 12px; }
+.requisitos-envio li { display: flex; align-items: center; gap: 8px; }
+.requisitos-envio li svg { flex: 0 0 auto; }
+.requisitos-envio li.listo { color: var(--green); }
+.requisitos-envio li.falta { color: var(--muted); font-weight: 650; }
+.requisitos-envio.resaltar { border-color: color-mix(in srgb, var(--red) 30%, var(--line)); background: var(--red-soft); }
+.requisitos-envio.resaltar li.falta { color: var(--red); }
 /* Historial: cronología compartida por la vista general y cada solicitud. */
 .history-card { padding: 24px; min-width: 0; }
 .history-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }

@@ -541,6 +541,7 @@ export function RequestsView({ consultarHistorial, datos, perfil, actualizando, 
           empleado={empleadoDe(edicionActiva.solicitud)}
           diasFestivos={datos.diasFestivos}
           actualizando={actualizando}
+          error={error}
           onClose={() => setEdicionActiva(null)}
           onAplicar={(formularioEdicion, motivo) => onAplicarEdicion(edicionActiva.edicion!.id, formularioEdicion, motivo)}
           onRechazar={(motivo) => onRechazarEdicion(edicionActiva.edicion!.id, motivo)}
