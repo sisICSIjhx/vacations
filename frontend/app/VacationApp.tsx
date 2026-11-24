@@ -471,6 +471,8 @@ export default function VacationApp() {
               consultarHistorial={sistema.consultarHistorial}
               onCancelarDias={perfil?.rol === "administrador" ? sistema.cancelarDiasSolicitud : undefined}
               onDelete={perfil?.rol === "administrador" ? sistema.eliminarSolicitud : undefined}
+              onEliminarPropia={sistema.eliminarSolicitudPropia}
+              error={sistema.error}
               onSolicitarEdicion={sistema.solicitarEdicion}
               onAplicarEdicion={perfil?.rol === "administrador" ? sistema.aplicarEdicion : undefined}
               onRechazarEdicion={perfil?.rol === "administrador" ? sistema.rechazarEdicion : undefined}

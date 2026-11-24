@@ -703,6 +703,32 @@ export function useVacationSystem(habilitado: boolean, anio: number, perfil: Per
     return !deleteError;
   }, [cargarDesdeSupabase, setDatos]);
 
+  // El empleado elimina su propia solicitud mientras no esté aprobada (032).
+  // No tiene DELETE por RLS: la RPC valida que sea suya y que siga planeada o
+  // pendiente. Sus días nunca se descontaron, así que el saldo no cambia.
+  const eliminarSolicitudPropia = useCallback(async (id: string) => {
+    setActualizando(true);
+    setError(null);
+    const supabase = obtenerSupabase();
+    if (!supabase) {
+      setDatos((actual) => ({
+        ...actual,
+        solicitudes: actual.solicitudes.filter((item) => item.id !== id),
+        // Igual que 025: la edición pendiente se cierra al eliminar la solicitud.
+        ediciones: actual.ediciones.map((item) => item.solicitudId === id && item.estado === "pendiente"
+          ? { ...item, estado: "rechazada" as const, respuesta: "Cerrada automáticamente: la solicitud de vacaciones fue eliminada.", resueltoPor: "Sistema", resueltoEn: new Date().toISOString() }
+          : item),
+      }));
+      setActualizando(false);
+      return true;
+    }
+    const { error: rpcError } = await supabase.schema("vacaciones").rpc("eliminar_solicitud_no_aprobada", { p_solicitud_id: id });
+    if (rpcError) setError(rpcError.message);
+    else await cargarDesdeSupabase();
+    setActualizando(false);
+    return !rpcError;
+  }, [cargarDesdeSupabase, setDatos]);
+
   const cambiarEstadoSolicitud = useCallback(async (id: string, estado: EstadoSolicitud) => {
     setActualizando(true);
     const supabase = obtenerSupabase();
@@ -1022,7 +1048,8 @@ export function useVacationSystem(habilitado: boolean, anio: number, perfil: Per
     eliminarEmpleado,
     guardarSolicitud,
     eliminarSolicitud,
-    cambiarEstadoSolicitud,
+    eliminarSolicitudPropia,
+cambiarEstadoSolicitud,
     cancelarDiasSolicitud,
     revisarSolicitud,
     obtenerRevisiones,
@@ -1035,5 +1062,5 @@ export function useVacationSystem(habilitado: boolean, anio: number, perfil: Per
     eliminarCatalogo,
     guardarFestivo,
     eliminarFestivo,
-  }), [consultarHistorial, actualizando, cambiarEstadoEmpleado, cambiarEstadoSolicitud, cancelarDiasSolicitud, cargando, cargarDesdeSupabase, datos, editarComentarioRevision, eliminarCatalogo, eliminarEmpleado, eliminarFestivo, eliminarSolicitud, error, guardarCatalogo, guardarEmpleado, guardarFestivo, guardarSolicitud, obtenerRevisiones, rechazarEdicion, revisarSolicitud, solicitarEdicion, aplicarEdicion]);
+  }), [consultarHistorial, actualizando, cambiarEstadoEmpleado, cambiarEstadoSolicitud, cancelarDiasSolicitud, cargando, cargarDesdeSupabase, datos, editarComentarioRevision, eliminarCatalogo, eliminarEmpleado, eliminarFestivo, eliminarSolicitud, eliminarSolicitudPropia, error, guardarCatalogo, guardarEmpleado, guardarFestivo, guardarSolicitud, obtenerRevisiones, rechazarEdicion, revisarSolicitud, solicitarEdicion, aplicarEdicion]);
 }

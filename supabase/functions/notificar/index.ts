@@ -22,6 +22,13 @@ function parseCampos(mensaje: string | null): Record<string, string> {
   return campos
 }
 
+function textoDias(valor: string | undefined): string {
+  if (!valor) return ''
+  const dias = Number(valor)
+  if (!Number.isFinite(dias) || dias < 0) return ''
+  return ` (${dias} ${dias === 1 ? 'día' : 'días'})`
+}
+
 // Plantillas por tipo de evento. Formato WhatsApp: *negrita*, _cursiva_.
 // SALTO separa los datos de la solicitud de la parte del flujo de aprobacion (linea en blanco).
 const SALTO = '\u0000'
@@ -34,9 +41,7 @@ function armarTexto(n: NotificacionPayload, appUrl: string | null): string {
   // El SQL manda los dias que descuenta, sin el dia de descanso del empleado ni
   // festivos (016, 017, 029). Sin ese campo no se muestra el conteo: los dias
   // naturales no coinciden con lo que descuenta la solicitud.
-  const diasSql = Number(c['Días'])
-  const dias = c['Días'] && Number.isFinite(diasSql) ? diasSql : null
-  const periodo = `📅 *Periodo:* ${del} al ${al}${dias ? ` (${dias} ${dias === 1 ? 'día' : 'días'})` : ''}`
+  const periodo = `📅 *Periodo:* ${del} al ${al}${textoDias(c['Días'])}`
   const jefe = c['Jefe inmediato']
   // La app marca las solicitudes extraordinarias con el prefijo [URGENTE] en el comentario
   const urgente = (c['Comentarios'] ?? '').startsWith('[URGENTE]')
@@ -138,7 +143,7 @@ function armarTexto(n: NotificacionPayload, appUrl: string | null): string {
         '✏️ *EDICIÓN APLICADA*',
         `👤 *Empleado:* ${empleado}`,
         `📝 *Tipo:* ${tipo}`,
-        `↩️ *Periodo anterior:* ${c['Antes del'] ?? 'N/D'} al ${c['Antes al'] ?? 'N/D'}${c['Días antes'] ? ` (${c['Días antes']} ${c['Días antes'] === '1' ? 'día' : 'días'})` : ''}`,
+        `↩️ *Periodo anterior:* ${c['Antes del'] ?? 'N/D'} al ${c['Antes al'] ?? 'N/D'}${textoDias(c['Días antes'])}`,
         periodo.replace('*Periodo:*', '*Nuevo periodo:*'),
         c['Motivo'] ? `💬 *Motivo del empleado:* ${c['Motivo']}` : '',
         c['Nota'] ? `🛠️ *Nota del administrador${c['Editó'] ? ` (${c['Editó']})` : ''}:* ${c['Nota']}` : '',

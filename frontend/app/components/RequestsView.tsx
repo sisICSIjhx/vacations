@@ -12,7 +12,7 @@ import { siguienteDiaHabil } from "../lib/diaHabil";
 import { AvisoSinAnticipacion, PanelExtemporaneo, reglasAnticipacion } from "./RegistroExtemporaneo";
 import { ANTICIPACION_MINIMA_DIAS, diasDeAnticipacion } from "../lib/anticipacion";
 import { ResumenSolicitud } from "./ResumenSolicitud";
-import { AtenderEdicionModal, SolicitarEdicionModal } from "./EdicionSolicitud";
+import { AtenderEdicionModal, EliminarSolicitudModal, SolicitarEdicionModal } from "./EdicionSolicitud";
 import type {
   DatosVacaciones,
   DecisionRevision,
@@ -40,6 +40,10 @@ interface RequestsViewProps {
   // Cancela los días de una aprobada (022): los reintegra y avisa al empleado con el motivo.
   onCancelarDias?: (id: string, motivo: string) => Promise<boolean>;
   onDelete?: (id: string) => Promise<boolean>;
+  // Cualquier empleado elimina su propia solicitud mientras no esté aprobada (032).
+  onEliminarPropia?: (id: string) => Promise<boolean>;
+  // Error de la última operación, para mostrarlo dentro del modal abierto.
+  error?: string | null;
   // Flujo de edicion (017): el empleado la pide; el administrador la aplica o rechaza.
   onSolicitarEdicion: (solicitudId: string, propuesta: { fechaInicio: string; fechaFin: string; fechaReintegro: string; motivo: string }) => Promise<boolean>;
   onAplicarEdicion?: (edicionId: string, formulario: SolicitudFormulario, motivo: string) => Promise<boolean>;
@@ -314,7 +318,7 @@ function DetailDrawer({ solicitud, empleado, ediciones, onClose, onObtenerRevisi
   );
 }
 
-export function RequestsView({ consultarHistorial, datos, perfil, actualizando, onCreate, onRevisar, onObtenerRevisiones, onEditarComentarioRevision, onCancelarDias, onDelete, onSolicitarEdicion, onAplicarEdicion, onRechazarEdicion }: RequestsViewProps) {
+export function RequestsView({ consultarHistorial, datos, perfil, actualizando, error, onCreate, onRevisar, onObtenerRevisiones, onEditarComentarioRevision, onCancelarDias, onDelete, onEliminarPropia, onSolicitarEdicion, onAplicarEdicion, onRechazarEdicion }: RequestsViewProps) {
   const [busqueda, setBusqueda] = useState("");
   const [estado, setEstado] = useState("");
   const [formulario, setFormulario] = useState<SolicitudFormulario | null>(null);
@@ -322,6 +326,7 @@ export function RequestsView({ consultarHistorial, datos, perfil, actualizando, 
   const [detalleActivo, setDetalleActivo] = useState<SolicitudAusencia | null>(null);
   const [edicionActiva, setEdicionActiva] = useState<{ solicitud: SolicitudAusencia; edicion?: EdicionSolicitud } | null>(null);
   const [cancelacionActiva, setCancelacionActiva] = useState<SolicitudAusencia | null>(null);
+  const [eliminacionActiva, setEliminacionActiva] = useState<SolicitudAusencia | null>(null);
 
   const edicionPendienteDe = (solicitudId: string) => datos.ediciones.find((item) => item.solicitudId === solicitudId && item.estado === "pendiente");
   const visibles = useMemo(() => solicitudesVisibles(perfil, datos.solicitudes, datos.empleados), [datos.empleados, datos.solicitudes, perfil]);
@@ -366,7 +371,16 @@ export function RequestsView({ consultarHistorial, datos, perfil, actualizando, 
     const correcto = await onCreate(reglas.preparar(formulario));
     if (correcto) setFormulario(null);
   };
+  const esPropia = (solicitud: SolicitudAusencia) => Boolean(perfil?.empleadoId) && solicitud.empleadoId === perfil?.empleadoId;
+  const sinAprobar = (solicitud: SolicitudAusencia) => solicitud.estado === "planeada" || solicitud.estado === "pendiente";
+  const puedePedirEdicion = (solicitud: SolicitudAusencia) => !edicionPendienteDe(solicitud.id)
+    && ["planeada", "pendiente", "aprobada"].includes(solicitud.estado)
+    && (perfil?.rol === "administrador" || esPropia(solicitud));
+  // El administrador elimina cualquiera; los demás, solo la propia sin aprobar (032).
+  const puedeEliminar = (solicitud: SolicitudAusencia) => Boolean(onDelete) || (Boolean(onEliminarPropia) && esPropia(solicitud) && sinAprobar(solicitud));
   const eliminar = (solicitud: SolicitudAusencia) => {
+    // Sin aprobar: antes de eliminar se ofrece editar las fechas.
+    if (sinAprobar(solicitud)) { setEliminacionActiva(solicitud); return; }
     if (!onDelete) return;
     // Eliminar una aprobada conserva sus días como tomados (022); para
     // reintegrarlos se usa "Cancelar días", que deja historial y avisa.
@@ -374,6 +388,12 @@ export function RequestsView({ consultarHistorial, datos, perfil, actualizando, 
       ? `¿Eliminar la solicitud de ${solicitud.nombreEmpleado}? Sus ${solicitud.dias} día(s) seguirán contando como tomados y NO se reintegrarán al saldo. Si no utilizó el periodo, usa «Cancelar días».`
       : `¿Eliminar la solicitud de ${solicitud.nombreEmpleado}?`;
     if (window.confirm(mensaje)) void onDelete(solicitud.id);
+  };
+  const confirmarEliminacion = async () => {
+    if (!eliminacionActiva) return false;
+    // El administrador conserva su eliminación directa; el resto usa la RPC de 032.
+    const accion = onDelete ?? onEliminarPropia;
+    return accion ? accion(eliminacionActiva.id) : false;
   };
   const confirmarCancelacion = async (motivo: string) => {
     if (!cancelacionActiva || !onCancelarDias) return false;
@@ -415,8 +435,6 @@ export function RequestsView({ consultarHistorial, datos, perfil, actualizando, 
                 // pide la edición y el administrador la atiende (017).
                 const edicionPendiente = edicionPendienteDe(solicitud.id);
                 const puedeAtender = Boolean(edicionPendiente && onAplicarEdicion && perfil?.rol === "administrador");
-                const puedePedirEdicion = !edicionPendiente && ["planeada", "pendiente", "aprobada"].includes(solicitud.estado)
-                  && (perfil?.rol === "administrador" || (Boolean(perfil?.empleadoId) && solicitud.empleadoId === perfil?.empleadoId));
                 return (
                   <tr key={solicitud.id} className="row-clickable" onDoubleClick={() => setDetalleActivo(solicitud)} title="Doble clic para ver detalle">
                     <td><div className="person-cell"><span className="avatar small" style={{ background: solicitud.colorEmpleado }}>{solicitud.nombreEmpleado.split(" ").slice(0, 2).map((p) => p[0]).join("")}</span><strong>{solicitud.nombreEmpleado}</strong></div></td>
@@ -435,8 +453,8 @@ export function RequestsView({ consultarHistorial, datos, perfil, actualizando, 
                         {onCancelarDias && solicitud.estado === "aprobada" && <button className="text-button danger-text" type="button" disabled={actualizando} onClick={() => setCancelacionActiva(solicitud)} aria-label={`Cancelar días de vacaciones de ${solicitud.nombreEmpleado}`} title="Cancelar días: conserva la solicitud y reintegra los días al saldo">Cancelar días</button>}
                         <button className="icon-button subtle" type="button" onClick={() => setDetalleActivo(solicitud)} aria-label={`Ver detalle de la solicitud de ${solicitud.nombreEmpleado}`} title="Ver detalle"><Eye size={15} /></button>
                         {puedeAtender && <button className="icon-button approve" type="button" disabled={actualizando} onClick={() => setEdicionActiva({ solicitud, edicion: edicionPendiente })} aria-label={`Atender edición de ${solicitud.nombreEmpleado}`} title="Atender solicitud de edición"><Pencil size={15} /></button>}
-                        {puedePedirEdicion && <button className="icon-button subtle" type="button" disabled={actualizando} onClick={() => setEdicionActiva({ solicitud })} aria-label={`Solicitar edición de la solicitud de ${solicitud.nombreEmpleado}`} title={perfil?.rol === "administrador" && solicitud.empleadoId !== perfil.empleadoId ? "Registrar solicitud de edición en nombre del empleado" : "Solicitar edición"}><Pencil size={15} /></button>}
-                        {onDelete && <button className="icon-button subtle danger" type="button" disabled={actualizando} onClick={() => eliminar(solicitud)} aria-label={`Eliminar solicitud de ${solicitud.nombreEmpleado}`} title="Eliminar solicitud"><Trash2 size={15} /></button>}
+                        {puedePedirEdicion(solicitud) && <button className="icon-button subtle" type="button" disabled={actualizando} onClick={() => setEdicionActiva({ solicitud })} aria-label={`Solicitar edición de la solicitud de ${solicitud.nombreEmpleado}`} title={perfil?.rol === "administrador" && solicitud.empleadoId !== perfil.empleadoId ? "Registrar solicitud de edición en nombre del empleado" : "Solicitar edición"}><Pencil size={15} /></button>}
+                        {puedeEliminar(solicitud) && <button className="icon-button subtle danger" type="button" disabled={actualizando} onClick={() => eliminar(solicitud)} aria-label={`Eliminar solicitud de ${solicitud.nombreEmpleado}`} title={onDelete ? "Eliminar solicitud" : "Eliminar mi solicitud (aún no aprobada)"}><Trash2 size={15} /></button>}
                       </div>
                     </td>
                   </tr>
@@ -533,10 +551,25 @@ export function RequestsView({ consultarHistorial, datos, perfil, actualizando, 
           empleado={empleadoDe(edicionActiva.solicitud)}
           diasFestivos={datos.diasFestivos}
           actualizando={actualizando}
+          error={error}
           onClose={() => setEdicionActiva(null)}
           onConfirm={(propuesta) => onSolicitarEdicion(edicionActiva.solicitud.id, propuesta)}
         />
       ))}
+
+      {eliminacionActiva && (
+        <EliminarSolicitudModal
+          solicitud={eliminacionActiva}
+          propia={esPropia(eliminacionActiva)}
+          puedeEditar={puedePedirEdicion(eliminacionActiva)}
+          edicionPendiente={Boolean(edicionPendienteDe(eliminacionActiva.id))}
+          actualizando={actualizando}
+          error={error}
+          onClose={() => setEliminacionActiva(null)}
+          onEditar={() => { setEdicionActiva({ solicitud: eliminacionActiva }); setEliminacionActiva(null); }}
+          onConfirm={confirmarEliminacion}
+        />
+      )}
     </div>
   );
 }
